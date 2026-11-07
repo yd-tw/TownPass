@@ -29,6 +29,7 @@ enum MyServiceItemId {
   library,
   locationSearch,
   zoo,
+  forum,
   ;
 }
 
@@ -182,6 +183,13 @@ extension MyServiceIdExt on MyServiceItemId {
           icon: Assets.svg.iconZoo24.svg(),
           category: MyServiceCategory.explore,
           destinationUrl: '',
+        ),
+      MyServiceItemId.forum => MyServiceItem(
+          title: '論壇',
+          description: '市民交流討論區',
+          icon: Assets.svg.iconCommunityService.svg(),
+          category: MyServiceCategory.other,
+          destinationUrl: 'https://tp2026.ydtw.net/',
         ),
     };
   }
