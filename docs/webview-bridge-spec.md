@@ -273,12 +273,12 @@ flutterObject.postMessage(JSON.stringify({
 
 ### 4.10 `report_draft`（問題回報）
 
-使用者在 App 任一畫面按左下角 🐞（或長按「論壇」按鈕）→ 預覽確認 → 「送到論壇」後，App 開啟 `https://tp2026.ydtw.net/new?source=app-report`。論壇偵測到 `source=app-report` 時呼叫：
+使用者在 App 任一畫面按左下角 🐞 後，App 截圖、遮蔽個資，直接開啟論壇「我要發問」頁 `https://tp2026.ydtw.net/new?source=app-report`（中間沒有預覽頁）。論壇偵測到 `source=app-report` 時呼叫：
 
 ```js
 const draft = await callApp('report_draft');
 if (draft) {
-  // 填入發文表單；圖片轉為 Blob 上傳
+  // 截圖轉為 File 放進新問題的待傳附件，使用者確認、補充說明後送出
   const blob = draft.image ? await (await fetch(draft.image)).blob() : null;
 }
 ```
@@ -288,7 +288,7 @@ if (draft) {
 ```json
 {
   "id": "1ce602be6615c442396cf53bbe853e96",
-  "description": "按下送出沒有反應",
+  "description": "",
   "image": "data:image/png;base64,iVBORw0K...",
   "context": {
     "screen": "/account",
@@ -308,7 +308,8 @@ if (draft) {
 
 | 欄位 | 說明 |
 |---|---|
-| `image` | PNG data URL；使用者關閉「附上截圖」時為 `null`。個資已遮蔽（App 原生畫面以色塊、網頁以模糊） |
+| `description` | 一律為空字串：描述改由使用者在論壇輸入。保留欄位以相容舊版網頁 |
+| `image` | PNG data URL；截圖失敗時為 `null`。個資已遮蔽（App 原生畫面以色塊、網頁以模糊），App 端沒有預覽，網頁送出前要讓使用者看得到、可以移除 |
 | `context.screen` | 截圖時所在畫面：一般頁面為路由（`/account`）；首頁為 `/main/` + 分頁（`/main/service`、`/main/home`、`/main/perk`、`/main/bill`）；WebView 為 `web:` + host + path，query 只保留白名單參數（論壇的 `question`，例如 `web:tp2026.ydtw.net/?question=12`）；開著對話框或底部彈窗時結尾加 `+dialog` / `+sheet`。舊版 App 沒有此欄位 |
 | `context.screenTitle` | 截圖時標題列的文字；首頁為分頁名稱，WebView 為網頁 `<title>`；取不到時為 `null` |
 | `context.route` / `routeHistory` | 回報時所在的 App 頁面與最近 10 次頁面切換 |

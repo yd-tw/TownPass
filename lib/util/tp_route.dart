@@ -34,7 +34,6 @@ import 'package:town_pass/page/subscription/subscription_view.dart';
 import 'package:town_pass/page/suspend_account/suspend_account_controller.dart';
 import 'package:town_pass/page/suspend_account/suspend_account_view.dart';
 import 'package:town_pass/util/tp_web_view.dart';
-import 'package:town_pass/page/report_preview/report_preview_view.dart';
 
 abstract class TPRoute {
   static const String main = '/';
@@ -53,7 +52,6 @@ abstract class TPRoute {
   static const String phoneCallUserAgreement = '/phone_call_user_agreement';
   static const String portfolioAndAuth = '/portfolio_and_auth';
   static const String qrCodeScan = '/qr_code_scan';
-  static const String reportPreview = '/report_preview';
   static const String service = '/service';
   static const String serviceEdit = '/service_edit';
   static const String setting = '/setting';
@@ -178,10 +176,6 @@ abstract class TPRoute {
     GetPage(
       name: webView,
       page: () => TPWebView(),
-    ),
-    GetPage(
-      name: reportPreview,
-      page: () => const ReportPreviewView(),
     ),
     GetPage(
       name: activityList,

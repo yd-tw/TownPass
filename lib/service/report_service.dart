@@ -17,12 +17,12 @@ import 'package:town_pass/util/tp_app_bar.dart';
 import 'package:town_pass/util/tp_bottom_navigation_factory.dart';
 import 'package:town_pass/util/tp_route.dart';
 
-/// 問題回報（PoC）：截圖 → 遮蔽個資 → 預覽 → 帶到論壇。
+/// 問題回報（PoC）：截圖 → 遮蔽個資 → 直接開啟論壇「我要發問」並帶入截圖。
 ///
 /// 論壇網頁以 `flutterObject` 的 `report_draft` 取得草稿，規格見
 /// `docs/webview-bridge-spec.md`。
 class ReportService extends GetxService {
-  /// 論壇開啟回報草稿的網址；論壇偵測 `source=app-report` 後呼叫 `report_draft`
+  /// 論壇「我要發問」頁；偵測到 `source=app-report` 後呼叫 `report_draft`
   static String get forumReportUrl {
     final Uri forum = Uri.parse(MyServiceItemId.forum.item.destinationUrl);
     return forum.replace(path: '/new', queryParameters: {'source': 'app-report'}).toString();
@@ -37,7 +37,7 @@ class ReportService extends GetxService {
   /// 包住整個 App 的截圖範圍
   static final GlobalKey boundaryKey = GlobalKey();
 
-  /// 目前路由，供全域回報按鈕判斷是否顯示
+  /// 目前路由
   static final RxString currentRoute = RxString('/');
 
   static const int _maxRouteHistory = 10;
@@ -58,9 +58,6 @@ class ReportService extends GetxService {
   static final List<_WebViewEntry> _webViews = [];
 
   bool _capturing = false;
-
-  /// 預覽中的截圖（PNG）
-  Uint8List? pendingImage;
 
   _ReportDraft? _draft;
 
@@ -94,46 +91,35 @@ class ReportService extends GetxService {
     _webViews.add(_WebViewEntry(controller, key));
   }
 
-  /// 截圖並開啟預覽頁
+  /// 截圖後直接開啟論壇「我要發問」，由網頁讀取草稿帶入截圖
   Future<void> startReport() async {
     if (_capturing) {
       return;
     }
     _capturing = true;
+    Uint8List? image;
+    Map<String, dynamic>? context;
     try {
       await _recordScreen();
-      // 在進入預覽頁前記錄，避免路由變成 /report_preview
-      _pendingContext = _diagnostics();
-      pendingImage = await _capture();
+      // 在開啟論壇前記錄，才是使用者按下回報時所在的畫面
+      context = _diagnostics();
+      image = await _capture();
     } catch (error) {
+      // 截圖失敗仍開啟論壇，讓使用者用文字描述
       debugPrint('[ReportService] 截圖失敗：$error');
-      pendingImage = null;
     } finally {
       _capturing = false;
     }
-    await Get.toNamed(TPRoute.reportPreview);
-  }
-
-  /// 預覽頁按「送到論壇」
-  Future<void> submit({required String description, required bool attachImage}) async {
-    final Uint8List? image = attachImage ? pendingImage : null;
     _draft = _ReportDraft(
       id: _randomId(),
-      description: description,
+      // 描述改由使用者在論壇輸入；保留欄位相容舊版網頁
+      description: '',
       imageDataUrl: image == null ? null : 'data:image/png;base64,${base64Encode(image)}',
-      context: _pendingContext ?? _diagnostics(),
+      context: context ?? _diagnostics(),
       createdAt: DateTime.now(),
     );
-    pendingImage = null;
-    _pendingContext = null;
-    Get.back();
     // 從 WebView（例如論壇本身）回報時，也要再開一層論壇
     await TPRoute.openUri(uri: forumReportUrl, preventDuplicates: false);
-  }
-
-  void discard() {
-    pendingImage = null;
-    _pendingContext = null;
   }
 
   /// 論壇網頁讀取草稿：限論壇網域、只能讀一次、逾時作廢
@@ -249,9 +235,6 @@ class ReportService extends GetxService {
   }
 
   String? _activeWebUrl;
-
-  /// 截圖當下的診斷資訊
-  Map<String, dynamic>? _pendingContext;
 
   /// 截圖當下所在畫面的識別字串，例如 `/account`、`/main/home`（首頁分頁）、`web:tp2026.ydtw.net/new+dialog`
   String? _screen;

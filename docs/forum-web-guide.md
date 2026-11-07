@@ -14,7 +14,7 @@
 |---|---|---|---|
 | 1 | 修改網站標題 | 建議 | `app/layout.tsx` |
 | 2 | 加入 App 橋接工具 | **必要** | `lib/townpass.ts`（新增） |
-| 3 | 新增 `/new` 發文頁，支援問題回報帶入與語音附件 | **必要** | `src/app/new/page.tsx`、`new-post-form.tsx`、`voice-recorder.tsx` |
+| 3 | `/new`「我要發問」支援問題回報帶入截圖 | **必要** | `src/app/new/page.tsx`、`src/app/ui/line/line-app.tsx`、`chat-room.tsx` |
 | 4 | 個資元素加上 `data-sensitive` | 建議 | 顯示個資的元件 |
 | 5 | 同步推播 token | 選用 | 登入後執行的元件 |
 
@@ -126,23 +126,28 @@ export type PushToken = { token: string; platform: 'android' | 'ios' };
 
 ---
 
-## 3. `/new` 發文頁與問題回報帶入
+## 3. `/new`「我要發問」與問題回報帶入
+
+`/new` 直接開啟「我要發問」的新問題聊天室（和首頁按「我要發問」相同）。原本的發文表單已移除。
 
 ### 3.1 流程
 
 ```
-App「送到論壇」
+App 任一畫面按 🐞
+  → App 截圖、遮蔽個資（沒有預覽頁）
   → 開啟 https://tp2026.ydtw.net/new?source=app-report
-  → 頁面偵測 source=app-report，呼叫 callApp('report_draft')
-  → 有草稿：分類預設「問題回報」、內文帶入描述與裝置資訊、顯示截圖附件
-  → 使用者可再錄一段語音說明（選填）
-  → 使用者確認後送出 → 截圖、語音各自上傳 POST /media → POST /questions 發文
+  → 頁面偵測 source=app-report，呼叫 callApp('report_draft')，並從網址移除 source
+  → 有草稿：截圖放進輸入列的待傳附件，分類預設「App 使用」，不通知附近的人
+  → 使用者打字或錄音說明，可移除截圖 → 送出
+  → 截圖上傳 POST /media → POST /questions（帶 context 與草稿 ID）
 ```
 
-草稿**只能讀一次**、App 送出後 **10 分鐘內**有效，且**只有 `tp2026.ydtw.net` 網域**讀得到。因此：
+草稿**只能讀一次**、App 產生後 **10 分鐘內**有效，且**只有 `tp2026.ydtw.net` 網域**讀得到。因此：
 
-- 讀到草稿後請存在 React state，不要重複呼叫。
-- React 18 開發模式（Strict Mode）的 `useEffect` 會執行兩次，第二次會讀到 `null`。範例用 `useRef` 防止重複呼叫。
+- 讀到草稿後存在 React state，不要重複呼叫。
+- React 開發模式（Strict Mode）的 `useEffect` 會執行兩次，第二次會讀到 `null`，要用 `useRef` 防止重複呼叫。
+- `description` 一律是空字串，描述由使用者在聊天室輸入。
+- App 端沒有預覽，截圖一定要先顯示在待傳附件，讓使用者確認或移除後才上傳。
 
 ### 3.2 頁面
 
@@ -150,77 +155,68 @@ App「送到論壇」
 
 | 檔案 | 內容 |
 |---|---|
-| `src/app/new/page.tsx` | 頁面外框；`useSearchParams` 需要 `<Suspense>` 包住，否則 production build 會失敗 |
-| `src/app/new/new-post-form.tsx` | 讀草稿、表單、送出 |
-| `src/app/new/voice-recorder.tsx` | 語音附件（見 §3.3） |
+| `src/app/new/page.tsx` | 以 `<LineApp ask />` 開啟新問題聊天室 |
+| `src/app/ui/line/line-app.tsx` | `readReportDraft`（讀草稿、截圖轉 `File`）、`reportContext`，以及 `send()` 建立問題時附上 context |
+| `src/app/ui/line/chat-room.tsx` | `initialMedia`（預先放好的待傳附件）、`draftHint`（新問題上方的提示） |
 | `src/lib/townpass-bridge.ts` | `callApp`、`isInTownPass`、`ReportDraft` 型別 |
-| `src/lib/forum-api.ts` | 後端 API：`getToken`、`uploadImage`、`uploadAudio`、`createQuestion` |
 
-讀草稿（`new-post-form.tsx`）：
+讀草稿（`line-app.tsx`）：
 
 ```tsx
+const reportRequested = useRef(false);
 useEffect(() => {
-  // 草稿只能讀一次：Strict Mode 下 effect 會跑兩次，用 ref 防止第二次讀到 null
-  if (!isAppReport || requested.current) return;
-  requested.current = true;
-  if (!isInTownPass()) return setLoadingDraft(false);
+  if (reportRequested.current) return;
+  reportRequested.current = true;
+  const url = new URL(window.location.href);
+  if (url.searchParams.get('source') !== 'app-report') return;
+  url.searchParams.delete('source'); // 重新整理時不再讀
+  window.history.replaceState(window.history.state, '', url);
+  if (!isInTownPass()) return;
 
-  callApp<ReportDraft | null>('report_draft').then((d) => {
-    setLoadingDraft(false);
-    if (!d) return; // 已讀過、逾時（10 分鐘）或網域不符
-    setDraft(d);
-    setCategory('app_usage');
-    setTitle(d.description ? `[問題回報] ${d.description.slice(0, 30)}` : '[問題回報]');
-    setContent(d.description);
-    setImage(d.image);
+  readReportDraft().then((report) => {
+    if (!report) return; // 已讀過、逾時（10 分鐘）或網域不符
+    // 換新的 key 讓聊天室重新掛載，帶入截圖
+    setActive((current) => current?.id ? current
+      : { key: makeId(), id: null, category: 'app_usage', locationSharing: 'off', report });
   });
-}, [isAppReport]);
+}, [notify]);
 ```
 
-送出：附件先各自上傳到 `POST /media` 取得 `id`，再放進 `POST /questions` 的 `media_ids`。
+送出：截圖和其他附件一樣先上傳 `POST /media`，建立問題時多帶 `context` 與草稿 ID。
 
 ```tsx
-const media_ids: string[] = [];
-if (image) {
-  const blob = await (await fetch(image)).blob(); // data URL → Blob
-  media_ids.push((await uploadImage(token, blob, `report-${draft?.id ?? Date.now()}.png`)).id);
-}
-if (audio) {
-  media_ids.push((await uploadAudio(token, audio.blob, audio.seconds)).id);
-}
-await createQuestion(token, {
-  title: title.trim().slice(0, 80) || undefined,
-  body: content.trim() || undefined,
-  media_ids: media_ids.length ? media_ids : undefined,
-  category, // 一般發文不傳，交給後端自動分類
+await api.createQuestion({
+  body,
+  media_ids: mediaIds,
+  // …language、category、assistance_mode、location_sharing
   // 裝置資訊放 context.extra，不併入內文
-  context: draft
-    ? { service_id: 'townpass-app', service_name: 'Town Pass', page_route: (draft.context.screen ?? draft.context.route).replace(/?[^+]*/, ''), page_title: draft.context.screenTitle ?? undefined, extra: { reportId: draft.id, ...draft.context } }
-    : null,
-  client_request_id: draft?.id ?? fallbackRequestId, // 防重送
-  // …language、assistance_mode 等其他欄位
+  ...(active.report ? { context: reportContext(active.report) } : {}),
+  client_request_id: active.report?.id ?? makeId(), // 問題回報用草稿 ID 防重送
 });
+
+function reportContext(report) {
+  return {
+    service_id: 'townpass-app',
+    service_name: 'Town Pass',
+    // page_route 不可含 query；完整的 screen 仍會隨 extra 送出
+    page_route: (report.context.screen ?? report.context.route).replace(/\?[^+]*/, ''),
+    page_title: report.context.screenTitle?.slice(0, 80) || undefined,
+    extra: { reportId: report.id, ...report.context },
+  };
+}
 ```
 
-- `body` 和 `media_ids` 至少要有一個，所以有截圖或錄音時內文可以不填。
-- token 失效（401）時清掉快取、重建工作階段再送一次。
-- 截圖是 data URL，不需要 `next/image` 的圖片最佳化，直接用原生 `<img>`。
+- `body` 和 `media_ids` 至少要有一個，所以只送截圖也可以。
+- 截圖是 data URL，先 `fetch` 成 Blob 再包成 `File`（`report-<id>.png`）。
 
 ### 3.3 語音附件（錄音）
 
-錄音完全在網頁端進行（`getUserMedia` + `MediaRecorder`），一般發文與問題回報都能使用。在 App 內時，**只有論壇網域**能取得麥克風，第一次錄音時 App 會詢問使用者授權（App 端實作見 `lib/util/tp_web_view.dart` 的 `_canGrant`）。
+錄音在聊天室輸入列的麥克風按鈕（`src/app/ui/line/media.tsx` 的 `VoiceRecorder`），用 `getUserMedia` + `MediaRecorder`。在 App 內時，**只有論壇網域**能取得麥克風，第一次錄音時 App 會詢問使用者授權（App 端實作見 `lib/util/tp_web_view.dart` 的 `_canGrant`）。
 
-`voice-recorder.tsx` 的行為：
-
-- 最長 60 秒，到時自動停止；錄完顯示 `<audio controls>` 試聽與刪除鈕，回傳 `{ blob, seconds }`。
-- 依序嘗試 `audio/mp4`、`audio/webm;codecs=opus`、`audio/webm`，取第一個 `MediaRecorder.isTypeSupported` 的格式；位元率 32 kbps，60 秒約 240 KB。
-- `NotAllowedError`（使用者拒絕）、`NotFoundError`（沒有麥克風）顯示對應提示。
-- 非 HTTPS 或瀏覽器不支援時不顯示按鈕；離開頁面時釋放麥克風。
-
-| 環境 | 錄出的格式 | 上傳檔名 |
-|---|---|---|
-| iOS（WKWebView／Safari） | `audio/mp4`（AAC） | `voice.m4a` |
-| Android WebView／Chrome | `audio/webm`（Opus） | `voice.webm` |
+| 環境 | 錄出的格式 |
+|---|---|
+| iOS（WKWebView／Safari） | `audio/mp4`（AAC） |
+| Android WebView／Chrome | `audio/webm`（Opus） |
 
 注意事項：
 
@@ -241,7 +237,6 @@ await createQuestion(token, {
 | `file` | 圖片：JPEG、PNG、WebP，最大 10 MB；語音：M4A、AAC、MP3、WebM，最長 3 分鐘 |
 
 - 文字欄位要放在 `file` 前面，有些 multipart 解析器處理檔案時只看得到前面的欄位。
-- 錄音的 MIME 可能帶 `;codecs=opus`，上傳前會去掉參數並改成對應副檔名（`forum-api.ts` 的 `audioFile`）。
 - 超過 24 小時沒被問題或回答引用的檔案會被刪除。
 
 `POST /questions`（JSON）：`media_ids` 最多 5 項；`client_request_id` 用來去重，問題回報帶草稿 ID，避免同一份回報被發兩次。
@@ -268,8 +263,8 @@ if (typeof window !== 'undefined' && !window.flutterObject) {
       if (name !== 'report_draft') return;
       const data = {
         id: 'mock-report-id',
-        description: '按下送出後沒有反應',
-        image: null,
+        description: '',
+        image: null, // 可換成任一 PNG data URL 測試截圖帶入
         context: {
           route: '/account', routeHistory: ['/', '/account'], webUrl: null,
           appVersion: '0.0.12', platform: 'android', osVersion: '14',
@@ -282,16 +277,15 @@ if (typeof window !== 'undefined' && !window.flutterObject) {
 }
 ```
 
-開啟 `http://localhost:3000/new?source=app-report`，表單應自動帶入描述與裝置資訊。
+開啟 `http://localhost:3000/new?source=app-report&demo=mock`（mock 只回覆 `report_draft`，所以搭配 `demo=mock` 不連後端），應直接進入新問題聊天室，分類為「App 使用」，有截圖時出現在待傳附件。
 
 在 App 內實測：
 
-1. 在任一畫面點左下角 🐞（或長按右下角「論壇」）。
-2. 填寫描述 →「送到論壇」。
-3. 確認 `/new` 頁面自動帶入內容與截圖。
-4. 點「錄製語音說明」：第一次會跳出麥克風授權，允許後開始計時，停止後可試聽、刪除。
-5. 送出後確認文章附有語音且可播放（iOS、Android 各測一次，格式不同）。
-6. 重新整理頁面，應不再帶入（草稿只能讀一次）。
+1. 在任一畫面點左下角 🐞。
+2. 應直接進入論壇「我要發問」的新問題聊天室，截圖在輸入列的待傳附件，可以移除。
+3. 打字或錄音說明後送出，確認問題附有截圖，`context.page_route` 是按 🐞 時的畫面。
+4. 重新整理頁面，應不再帶入（草稿只能讀一次）。
+5. 在論壇頁面內按 🐞，應再開一層「我要發問」。
 
 在一般瀏覽器開發時錄音也能直接測（`localhost` 允許 `getUserMedia`），不需要 mock。
 
