@@ -27,6 +27,17 @@ class ForumView extends StatefulWidget {
 class _ForumViewState extends State<ForumView> {
   final GlobalKey _webViewKey = GlobalKey();
   late bool _hasOpened;
+  InAppWebViewController? _controller;
+
+  /// 網頁有上一頁（含論壇用 pushState 疊的聊天室、對話框）
+  bool _canGoBack = false;
+
+  Future<void> _updateCanGoBack() async {
+    final bool value = await _controller?.canGoBack() ?? false;
+    if (mounted && value != _canGoBack) {
+      setState(() => _canGoBack = value);
+    }
+  }
 
   @override
   void initState() {
@@ -44,6 +55,20 @@ class _ForumViewState extends State<ForumView> {
 
   @override
   Widget build(BuildContext context) {
+    // 系統返回鍵：論壇是目前分頁且網頁有上一頁時先退網頁，否則照常（離開 App）。
+    // IndexedStack 會保留其他分頁，所以只在論壇分頁顯示中才攔截。
+    return PopScope(
+      canPop: !(widget.active && _canGoBack),
+      onPopInvokedWithResult: (didPop, _) async {
+        if (!didPop) {
+          await _controller?.goBack();
+        }
+      },
+      child: _buildPage(),
+    );
+  }
+
+  Widget _buildPage() {
     return Scaffold(
       appBar: TPAppBar(
         showLogo: true,
@@ -58,6 +83,7 @@ class _ForumViewState extends State<ForumView> {
           ? TPInAppWebView(
               key: _webViewKey,
               onWebViewCreated: (controller) {
+                _controller = controller;
                 ReportService.registerWebView(
                   controller,
                   _webViewKey,
@@ -81,8 +107,10 @@ class _ForumViewState extends State<ForumView> {
                   ),
                 );
               },
-              onUpdateVisitedHistory: (_, url, _) =>
-                  ReportService.updateWebUrl(_webViewKey, url),
+              onUpdateVisitedHistory: (_, url, _) {
+                ReportService.updateWebUrl(_webViewKey, url);
+                _updateCanGoBack();
+              },
               onLoadStop: (_, url) =>
                   ReportService.updateWebUrl(_webViewKey, url),
               onGeolocationPermissionsShowPrompt: (_, origin) async =>
