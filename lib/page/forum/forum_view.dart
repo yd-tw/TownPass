@@ -89,21 +89,9 @@ class _ForumViewState extends State<ForumView> {
                   _webViewKey,
                   mainTabIndex: widget.mainTabIndex,
                 );
-                final Uri forumUrl = Uri.parse(
-                  MyServiceItemId.forum.item.destinationUrl,
-                );
                 controller.loadUrl(
                   urlRequest: URLRequest(
-                    url: WebUri(
-                      forumUrl
-                          .replace(
-                            queryParameters: {
-                              ...forumUrl.queryParameters,
-                              'appTab': 'forum',
-                            },
-                          )
-                          .toString(),
-                    ),
+                    url: WebUri(MyServiceItemId.forum.item.destinationUrl),
                   ),
                 );
               },

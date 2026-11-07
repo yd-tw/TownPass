@@ -227,7 +227,10 @@ class OpenLinkMessageHandler extends TPWebMessageHandler {
   }) async {
     switch (message as String?) {
       case String uri:
-        await TPRoute.openUri(uri: uri);
+        await TPRoute.openUri(
+          uri: uri,
+          preventDuplicates: Uri.tryParse(uri)?.host != ReportService.forumHost,
+        );
       case null:
         onReply?.call(replyWebMessage(data: false));
     }
