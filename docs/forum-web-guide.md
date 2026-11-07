@@ -162,24 +162,23 @@ App 任一畫面按回報按鈕（問號）
 
 讀草稿（`line-app.tsx`）：
 
-```tsx
-const reportRequested = useRef(false);
-useEffect(() => {
-  if (reportRequested.current) return;
-  reportRequested.current = true;
-  const url = new URL(window.location.href);
-  if (url.searchParams.get('source') !== 'app-report') return;
-  url.searchParams.delete('source'); // 重新整理時不再讀
-  window.history.replaceState(window.history.state, '', url);
-  if (!isInTownPass()) return;
+草稿要和連線後端**同時**讀，等兩者都好了才顯示畫面，聊天室第一次出現就帶著截圖。若先顯示空白聊天室、讀到草稿再換一個，畫面會閃一下。
 
-  readReportDraft().then((report) => {
-    if (!report) return; // 已讀過、逾時（10 分鐘）或網域不符
-    // 換新的 key 讓聊天室重新掛載，帶入截圖
-    setActive((current) => current?.id ? current
-      : { key: makeId(), id: null, category: 'app_usage', locationSharing: 'off', report });
+```tsx
+// LineAppInner：草稿只能讀一次，存在 ref，Strict Mode 重跑 effect 或重新連線都沿用同一份
+const reportRef = useRef<Promise<Report | null> | null>(null);
+useEffect(() => {
+  reportRef.current ??= readReportFromUrl(); // 讀完會把 source 從網址移除
+  const report = reportRef.current;
+  connect().then(async ({ api, note }) => {
+    setConn({ status: 'ready', api, note, report: await report });
   });
-}, [notify]);
+}, [attempt]);
+
+// LineAppConnected：一開始就建立帶截圖的新問題，instant 讓聊天室不播放滑入動畫
+const [active, setActive] = useState(() => report
+  ? { key: makeId(), id: null, category: 'app_usage', locationSharing: 'approximate', report, instant: true }
+  : /* ask 模式的空白新問題，同樣 instant */ ...);
 ```
 
 送出：截圖和其他附件一樣先上傳 `POST /media`，建立問題時多帶 `context` 與草稿 ID。
