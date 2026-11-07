@@ -1,6 +1,7 @@
 import 'package:collection/collection.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:town_pass/util/sensitive.dart';
 import 'package:town_pass/gen/assets.gen.dart';
 import 'package:town_pass/util/extension/string.dart';
 import 'package:town_pass/util/tp_colors.dart';
@@ -27,6 +28,8 @@ class TPSettingList extends StatelessWidget {
 }
 
 class TPSettingListTile extends StatelessWidget {
+  static Widget _maybeSensitive(bool sensitive, Widget child) => sensitive ? Sensitive(child: child) : child;
+
   final EdgeInsets? padding;
   final Color? backgroundColor;
   final GestureTapCallback? onTap;
@@ -109,6 +112,7 @@ class TPSettingListTile extends StatelessWidget {
   factory TPSettingListTile.display({
     Widget? leading,
     required String title,
+    bool sensitiveTitle = false,
     String? subtitle,
     required String content,
     Widget? trailing,
@@ -120,9 +124,12 @@ class TPSettingListTile extends StatelessWidget {
       onTap: () => onTap?.call(),
       onLongPress: () => onLongPress?.call(),
       leading: leading,
-      title: title.text(
-        style: TPTextStyles.h3Regular,
-        color: TPColors.grayscale700,
+      title: _maybeSensitive(
+        sensitiveTitle,
+        title.text(
+          style: TPTextStyles.h3Regular,
+          color: TPColors.grayscale700,
+        ),
       ),
       subtitle: subtitle?.text(
         style: TPTextStyles.bodyRegular,
@@ -141,6 +148,7 @@ class TPSettingListTile extends StatelessWidget {
     required String title,
     String? subtitle,
     String? content,
+    bool sensitiveContent = false,
     GestureTapCallback? onTap,
     GestureLongPressCallback? onLongPress,
   }) {
@@ -156,10 +164,16 @@ class TPSettingListTile extends StatelessWidget {
         style: TPTextStyles.bodyRegular,
         color: TPColors.grayscale700,
       ),
-      content: content?.text(
-        style: TPTextStyles.bodyRegular,
-        color: TPColors.grayscale500,
-      ),
+      content: switch (content) {
+        String content => _maybeSensitive(
+            sensitiveContent,
+            content.text(
+              style: TPTextStyles.bodyRegular,
+              color: TPColors.grayscale500,
+            ),
+          ),
+        null => null,
+      },
       trailing: Assets.svg.iconExpand.svg(),
     );
   }

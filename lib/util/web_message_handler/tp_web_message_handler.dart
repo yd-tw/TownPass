@@ -10,6 +10,7 @@ import 'package:town_pass/service/device_service.dart';
 import 'package:town_pass/service/geo_locator_service.dart';
 import 'package:town_pass/service/notification_service.dart';
 import 'package:town_pass/service/push_service.dart';
+import 'package:town_pass/service/report_service.dart';
 import 'package:town_pass/service/shared_preferences_service.dart';
 import 'package:town_pass/service/subscription_service.dart';
 import 'package:town_pass/util/tp_button.dart';
@@ -306,6 +307,25 @@ class PushTokenMessageHandler extends TPWebMessageHandler {
               'token': token,
               'platform': PushService.platform,
             },
+    ));
+  }
+}
+
+/// 取得問題回報草稿（截圖 base64、描述、診斷資訊）。
+/// 僅論壇網域可讀取，且只能讀一次；無草稿時回覆 null。
+class ReportDraftMessageHandler extends TPWebMessageHandler {
+  @override
+  String get name => 'report_draft';
+
+  @override
+  Future<void> handle({
+    required Object? message,
+    required WebUri? sourceOrigin,
+    required bool isMainFrame,
+    required onReply,
+  }) async {
+    onReply?.call(replyWebMessage(
+      data: Get.find<ReportService>().takeDraft(sourceOrigin),
     ));
   }
 }

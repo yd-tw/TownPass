@@ -8,9 +8,11 @@ import 'package:town_pass/service/geo_locator_service.dart';
 import 'package:town_pass/service/notification_service.dart';
 import 'package:town_pass/service/package_service.dart';
 import 'package:town_pass/service/push_service.dart';
+import 'package:town_pass/service/report_service.dart';
 import 'package:town_pass/service/shared_preferences_service.dart';
 import 'package:town_pass/service/subscription_service.dart';
 import 'package:town_pass/util/tp_colors.dart';
+import 'package:town_pass/util/report_button.dart';
 import 'package:town_pass/util/tp_route.dart';
 
 const _transparentStatusBar = SystemUiOverlayStyle(
@@ -40,6 +42,7 @@ Future<void> initServices() async {
   await Get.putAsync<PushService>(() async => await PushService().init());
 
   Get.put<SubscriptionService>(SubscriptionService());
+  Get.put<ReportService>(ReportService());
 }
 
 class MyApp extends StatelessWidget {
@@ -80,6 +83,17 @@ class MyApp extends StatelessWidget {
         Get.find<PushService>().handleInitialMessage();
       },
       getPages: TPRoute.page,
+      routingCallback: ReportService.onRoute,
+      // 整個 App 包在 RepaintBoundary 內供問題回報截圖；回報按鈕在範圍外，不會被截進去
+      builder: (context, child) => Stack(
+        children: [
+          RepaintBoundary(
+            key: ReportService.boundaryKey,
+            child: child ?? const SizedBox.shrink(),
+          ),
+          const ReportButton(),
+        ],
+      ),
     );
   }
 }

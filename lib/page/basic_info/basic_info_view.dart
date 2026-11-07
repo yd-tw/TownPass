@@ -23,9 +23,11 @@ class BasicInfoView extends GetView<BasicInfoViewController> {
               children: [
                 TPSettingListTile.display(
                   title: controller.name,
+                  sensitiveTitle: true,
                   content: '',
                 ),
                 TPSettingListTile.navigate(
+                  sensitiveContent: true,
                   title: '身分證',
                   content: controller.idNumber.value,
                   onTap: () {
@@ -48,6 +50,7 @@ class BasicInfoView extends GetView<BasicInfoViewController> {
                   },
                 ),
                 TPSettingListTile.navigate(
+                  sensitiveContent: true,
                   title: '生日',
                   content: controller.birthday.value,
                   onTap: () {
@@ -72,6 +75,7 @@ class BasicInfoView extends GetView<BasicInfoViewController> {
                   },
                 ),
                 TPSettingListTile.navigate(
+                  sensitiveContent: true,
                   title: '電子信箱',
                   content: controller.email.value ?? '未設定',
                   onTap: () {
@@ -93,6 +97,7 @@ class BasicInfoView extends GetView<BasicInfoViewController> {
                   },
                 ),
                 TPSettingListTile.navigate(
+                  sensitiveContent: true,
                   title: '手機門號',
                   content: controller.phoneNumber.value ?? '未設定',
                   onTap: () {
@@ -117,6 +122,7 @@ class BasicInfoView extends GetView<BasicInfoViewController> {
                   },
                 ),
                 TPSettingListTile.navigate(
+                  sensitiveContent: true,
                   title: '通訊地址',
                   content: controller.address.value ?? '未設定',
                   onTap: () {

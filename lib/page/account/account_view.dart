@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:town_pass/util/sensitive.dart';
 import 'package:town_pass/gen/assets.gen.dart';
 import 'package:town_pass/page/account/account_view_controller.dart';
 import 'package:town_pass/page/account/widget/account_app_bar.dart';
@@ -30,11 +31,11 @@ class AccountView extends GetView<AccountViewController> {
                     TPSettingListTile.listTile(
                       excludeFromSemantics: true,
                       leading: Assets.svg.iconPerson.svg(),
-                      title: TPText(
+                      title: Sensitive(child: TPText(
                         controller.name.value,
                         style: TPTextStyles.h2Regular,
                         color: TPColors.grayscale800,
-                      ),
+                      )),
                       trailing: GestureDetector(
                         behavior: HitTestBehavior.opaque,
                         onTap: () async => await Get.toNamed(TPRoute.setting)?.then((value) => controller.syncAccount()),
@@ -48,11 +49,11 @@ class AccountView extends GetView<AccountViewController> {
                     TPSettingListTile.listTile(
                       excludeFromSemantics: true,
                       leading: Assets.svg.iconPhone.svg(),
-                      title: TPText(
+                      title: Sensitive(child: TPText(
                         controller.phoneNumber.value,
                         style: TPTextStyles.h2Regular,
                         color: TPColors.grayscale800,
-                      ),
+                      )),
                       trailing: GestureDetector(
                         behavior: HitTestBehavior.opaque,
                         onTap: () async => await Get.toNamed(TPRoute.setting)?.then((value) => controller.syncAccount()),

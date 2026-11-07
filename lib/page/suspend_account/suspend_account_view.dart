@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:fluttertoast/fluttertoast.dart';
 import 'package:get/get.dart';
+import 'package:town_pass/util/sensitive.dart';
 import 'package:town_pass/gen/assets.gen.dart';
 import 'package:town_pass/page/suspend_account/suspend_account_controller.dart';
 import 'package:town_pass/util/tp_app_bar.dart';
@@ -41,11 +42,11 @@ class SuspendAccountView extends GetView<SuspendAccountController> {
           TPSettingListTile.header(title: '目前登入帳號'),
           TPSettingListTile.listTile(
             leading: Assets.svg.iconPerson.svg(),
-            title: TPText(
+            title: Sensitive(child: TPText(
               controller.name,
               style: TPTextStyles.h2Regular,
               color: TPColors.grayscale800,
-            ),
+            )),
           ),
           TPSettingListTile.line(),
           TPSettingListTile.listTile(

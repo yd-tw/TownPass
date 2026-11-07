@@ -114,7 +114,9 @@ initBridge();
 | `launch_map` | 開啟外部地圖 / URL | URL 字串 | `true` / `false` |
 | `phone_call` | 撥打電話 | 電話號碼字串 | `true` / `false` |
 | `1999agree` | 撥打 1999（含使用者同意流程） | 任意非 null 值 | 失敗回 `false`；成功不回覆 |
-| `notify` | 顯示系統通知 | `{ title, content }` | 成功不回覆；格式錯誤回 `false` |
+| `notify` | 顯示系統通知 | `{ title, content, url? }` | 成功不回覆；格式錯誤回 `false` |
+| `push_token` | 取得 FCM 推播 token | `null` | `{ token, platform }` 或 `null`，見 [fcm-push-spec.md](./fcm-push-spec.md) |
+| `report_draft` | 取得問題回報草稿（僅論壇網域） | `null` | 草稿物件或 `null`，見 4.10 |
 
 ### 4.1 `userinfo`
 
@@ -268,6 +270,49 @@ flutterObject.postMessage(JSON.stringify({
 
 - 顯示 Android 系統通知。`title`、`content` 皆須為字串。
 - 特殊行為：`content` 符合 `已訂閱XXX` 時，App 會把 `XXX` 加入「訂閱」清單；符合 `已取消訂閱XXX` 時移除。一般通知請避免使用這兩種字樣。
+
+### 4.10 `report_draft`（問題回報）
+
+使用者在 App 任一畫面按左下角 🐞（或長按「論壇」按鈕）→ 預覽確認 → 「送到論壇」後，App 開啟 `https://tp2026.ydtw.net/?source=app-report`。論壇偵測到 `source=app-report` 時呼叫：
+
+```js
+const draft = await callApp('report_draft');
+if (draft) {
+  // 填入發文表單；圖片轉為 Blob 上傳
+  const blob = draft.image ? await (await fetch(draft.image)).blob() : null;
+}
+```
+
+回覆範例：
+
+```json
+{
+  "id": "1ce602be6615c442396cf53bbe853e96",
+  "description": "按下送出沒有反應",
+  "image": "data:image/png;base64,iVBORw0K...",
+  "context": {
+    "route": "/account",
+    "routeHistory": ["/", "/account"],
+    "webUrl": null,
+    "appVersion": "0.0.12",
+    "platform": "android",
+    "osVersion": "14",
+    "deviceModel": "SM-A236E",
+    "locale": "zh-Hant-TW",
+    "timestamp": 1794040555730
+  }
+}
+```
+
+| 欄位 | 說明 |
+|---|---|
+| `image` | PNG data URL；使用者關閉「附上截圖」時為 `null`。個資已遮蔽（App 原生畫面以色塊、網頁以模糊） |
+| `context.route` / `routeHistory` | 回報時所在的 App 頁面與最近 10 次頁面切換 |
+| `context.webUrl` | 回報時所在 WebView 的網址，只保留 scheme、host、path（去除 query 與 hash） |
+
+- **只有論壇網域**（`tp2026.ydtw.net`）可讀取，其他網域一律回 `null`。
+- **只能讀一次**，讀取後即從 App 記憶體刪除；送出後 10 分鐘未讀取也會作廢。
+- 論壇自己的頁面請在個資元素加上 `data-sensitive` 屬性，截圖時會被模糊。
 
 ---
 

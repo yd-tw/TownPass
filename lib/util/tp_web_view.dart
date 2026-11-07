@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:get/get.dart';
 import 'package:town_pass/gen/assets.gen.dart';
+import 'package:town_pass/service/report_service.dart';
 import 'package:town_pass/util/tp_app_bar.dart';
 import 'package:town_pass/util/tp_colors.dart';
 import 'package:town_pass/util/web_message_handler/tp_web_message_listener.dart';
@@ -46,6 +47,9 @@ class TPWebView extends StatelessWidget {
 
   final RxBool canGoBack = RxBool(false);
 
+  /// 問題回報截圖時用來定位 WebView
+  final GlobalKey _webViewKey = GlobalKey();
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -77,8 +81,10 @@ class TPWebView extends StatelessWidget {
         controller: appBarController,
       ),
       body: TPInAppWebView(
+        key: _webViewKey,
         onWebViewCreated: (controller) {
           webViewController.value = controller;
+          ReportService.registerWebView(controller, _webViewKey);
           try {
             controller.loadUrl(urlRequest: URLRequest(url: WebUri(url)));
           } catch (_) {
