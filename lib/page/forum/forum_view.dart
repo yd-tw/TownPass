@@ -81,10 +81,10 @@ class _ForumViewState extends State<ForumView> {
                   ),
                 );
               },
-              onUpdateVisitedHistory: (controller, url, _) =>
-                  ReportService.updateWebUrl(controller, url),
-              onLoadStop: (controller, url) =>
-                  ReportService.updateWebUrl(controller, url),
+              onUpdateVisitedHistory: (_, url, _) =>
+                  ReportService.updateWebUrl(_webViewKey, url),
+              onLoadStop: (_, url) =>
+                  ReportService.updateWebUrl(_webViewKey, url),
               onGeolocationPermissionsShowPrompt: (_, origin) async =>
                   GeolocationPermissionShowPromptResponse(
                     origin: origin,

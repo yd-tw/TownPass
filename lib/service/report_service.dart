@@ -106,10 +106,11 @@ class ReportService extends GetxService {
   /// 切換底部分頁後重新判斷目前是否位於發問頁。
   static void refreshActivePage() => _updateAskPage();
 
-  /// TPWebView 網址改變（含 pushState）時呼叫
-  static void updateWebUrl(InAppWebViewController controller, Uri? url) {
+  /// WebView 網址改變（含 pushState）時呼叫。
+  /// 用 [key] 找 WebView：回呼帶來的 controller 和建立時登記的不一定是同一個物件。
+  static void updateWebUrl(GlobalKey key, Uri? url) {
     for (final _WebViewEntry entry in _webViews) {
-      if (identical(entry.controller, controller)) {
+      if (identical(entry.key, key)) {
         entry.url = url;
       }
     }

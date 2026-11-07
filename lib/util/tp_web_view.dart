@@ -67,17 +67,14 @@ class TPWebView extends StatelessWidget {
       appBar: TPAppBar(
         backgroundColor: TPColors.primary500,
         foregroundColor: TPColors.white,
-        leading: Obx(
-          () => switch (canGoBack.value) {
-            true => IconButton(
-                icon: Assets.svg.expand.svg(),
-                onPressed: () async => await webViewController.value?.goBack(),
-                style: const ButtonStyle(
-                  iconSize: WidgetStatePropertyAll<double>(24),
-                ),
-              ),
-            false => const SizedBox.shrink(),
-          },
+        // 一律顯示上一頁：網頁有上一頁就退網頁，沒有就關閉 WebView 回到 App（同系統返回鍵）
+        leading: IconButton(
+          icon: Assets.svg.expand.svg(),
+          tooltip: '上一頁',
+          onPressed: _goBackOrClose,
+          style: const ButtonStyle(
+            iconSize: WidgetStatePropertyAll<double>(24),
+          ),
         ),
         actions: [
           CloseButton(
@@ -102,12 +99,12 @@ class TPWebView extends StatelessWidget {
             controller.loadData(data: _failedToLoadUrlData(url: url));
           }
         },
-        onUpdateVisitedHistory: (controller, url, _) async {
+        onUpdateVisitedHistory: (_, url, _) async {
           // 單頁網站換頁（pushState）也會進來，回報按鈕依網址切換成聊天按鈕
-          ReportService.updateWebUrl(controller, url);
+          ReportService.updateWebUrl(_webViewKey, url);
           canGoBack.value = await webViewController.value?.canGoBack() ?? false;
         },
-        onLoadStop: (controller, url) => ReportService.updateWebUrl(controller, url),
+        onLoadStop: (_, url) => ReportService.updateWebUrl(_webViewKey, url),
         onTitleChanged: (_, title) {
           appBarController.title.value = switch (forceTitle == null) {
             true => title,
