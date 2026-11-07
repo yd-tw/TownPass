@@ -1,5 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:town_pass/gen/assets.gen.dart';
+
+/// 「我的問題」圖示：對話框加三個點（Lucide `message-circle-more`，ISC 授權），配色同其他服務圖示
+const String _myQuestionsIcon = '''
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="#434344" d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719"/>
+  <path stroke="#2EB6C7" d="M8 12h.01"/>
+  <path stroke="#2EB6C7" d="M12 12h.01"/>
+  <path stroke="#2EB6C7" d="M16 12h.01"/>
+</svg>
+''';
 
 // 先於 MyServiceItemId enum 加入新服務；
 // 再在 MyServiceIdExt 擴充中加入該服務的 MyServiceItem 物件。
@@ -30,6 +41,7 @@ enum MyServiceItemId {
   locationSearch,
   zoo,
   forum,
+  myQuestions,
   ;
 }
 
@@ -190,6 +202,13 @@ extension MyServiceIdExt on MyServiceItemId {
           icon: Assets.svg.iconCommunityService.svg(),
           category: MyServiceCategory.other,
           destinationUrl: 'https://tp2026.ydtw.net/forum',
+        ),
+      MyServiceItemId.myQuestions => MyServiceItem(
+          title: '我的問題',
+          description: '查看自己問過的問題與回覆',
+          icon: SvgPicture.string(_myQuestionsIcon),
+          category: MyServiceCategory.other,
+          destinationUrl: 'https://tp2026.ydtw.net/chat',
         ),
     };
   }

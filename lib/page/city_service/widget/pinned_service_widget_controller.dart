@@ -7,7 +7,7 @@ class PinnedServiceWidgetController extends GetxController {
       MyServiceItemId.locationSearch,
       MyServiceItemId.districtOffice,
       MyServiceItemId.dashboard,
-      MyServiceItemId.forum,
+      MyServiceItemId.myQuestions,
     ],
   );
 
