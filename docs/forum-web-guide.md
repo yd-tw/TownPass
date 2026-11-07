@@ -103,7 +103,7 @@ export type ReportDraft = {
   /** PNG data URL；使用者未附截圖時為 null */
   image: string | null;
   context: {
-    /** 截圖時所在畫面，例如 `/account`、`/#home`、`web:tp2026.ydtw.net/new`；格式見 webview-bridge-spec.md §4.10 */
+    /** 截圖時所在畫面，例如 `/account`、`/main/home`、`web:tp2026.ydtw.net/new`；格式見 webview-bridge-spec.md §4.10 */
     screen?: string;
     /** 截圖時標題列的文字 */
     screenTitle?: string | null;
@@ -250,6 +250,7 @@ await createQuestion(token, {
 
 - **發文者身分以後端的工作階段 token 判斷**，不要信任前端或 App `userinfo` 傳來的使用者 ID（無法驗證真偽）。
 - 前端的 60 秒限制可以被繞過，長度與大小要由後端檢查。
+- `context.extra`（裝置資訊、瀏覽過的頁面）後端只回傳給發問者本人與管理員；其他人只看得到 `page_route`、`page_title`。
 
 ### 3.5 測試
 

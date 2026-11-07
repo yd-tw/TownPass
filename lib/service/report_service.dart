@@ -253,7 +253,7 @@ class ReportService extends GetxService {
   /// 截圖當下的診斷資訊
   Map<String, dynamic>? _pendingContext;
 
-  /// 截圖當下所在畫面的識別字串，例如 `/account`、`/#home`、`web:tp2026.ydtw.net/new+dialog`
+  /// 截圖當下所在畫面的識別字串，例如 `/account`、`/main/home`（首頁分頁）、`web:tp2026.ydtw.net/new+dialog`
   String? _screen;
 
   /// 截圖當下標題列的文字
@@ -276,7 +276,8 @@ class ReportService extends GetxService {
       };
       screen = 'web:${url.host}${url.path}${query.isEmpty ? '' : '?${Uri(queryParameters: query).query}'}';
     } else if (route == TPRoute.main) {
-      screen = '$route#${_mainTabId() ?? 'unknown'}';
+      // 不用 # 分隔：後端會把 page_route 從 ? 或 # 起的部分刪掉
+      screen = '/main/${_mainTabId() ?? 'unknown'}';
     } else {
       screen = route;
     }
