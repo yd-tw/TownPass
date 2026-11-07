@@ -4,6 +4,7 @@ gradle-wrapper.jar
 /gradlew
 /gradlew.bat
 /local.properties
+/.kotlin/
 GeneratedPluginRegistrant.java
 
 # Remember to never publicly share your keystore.
@@ -11,3 +12,6 @@ GeneratedPluginRegistrant.java
 key.properties
 **/*.keystore
 **/*.jks
+
+# Firebase 專案設定，各自從 Firebase 主控台下載（見 docs/fcm-push-spec.md）
+/app/google-services.json

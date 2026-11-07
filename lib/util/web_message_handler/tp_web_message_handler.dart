@@ -9,6 +9,7 @@ import 'package:town_pass/service/account_service.dart';
 import 'package:town_pass/service/device_service.dart';
 import 'package:town_pass/service/geo_locator_service.dart';
 import 'package:town_pass/service/notification_service.dart';
+import 'package:town_pass/service/push_service.dart';
 import 'package:town_pass/service/shared_preferences_service.dart';
 import 'package:town_pass/service/subscription_service.dart';
 import 'package:town_pass/util/tp_button.dart';
@@ -248,6 +249,7 @@ class NotifyMessageHandler extends TPWebMessageHandler {
         NotificationService.showNotification(
           title: json['title'],
           content: json['content'],
+          url: json['url'] as String?,
         );
         final String content = json['content'];
         if (RegExp(r'已訂閱(.+)').hasMatch(content)) {
@@ -279,5 +281,31 @@ class QRCodeScanMessageHandler extends TPWebMessageHandler {
     onReply?.call(
       replyWebMessage(data: result),
     );
+  }
+}
+
+/// 取得 FCM 推播 token，供網頁後端綁定使用者。
+/// 回覆 `{token, platform}`；推播未啟用或取得失敗時回覆 null。
+/// 規格見 `docs/fcm-push-spec.md`。
+class PushTokenMessageHandler extends TPWebMessageHandler {
+  @override
+  String get name => 'push_token';
+
+  @override
+  Future<void> handle({
+    required Object? message,
+    required WebUri? sourceOrigin,
+    required bool isMainFrame,
+    required onReply,
+  }) async {
+    final String? token = await Get.find<PushService>().fetchToken();
+    onReply?.call(replyWebMessage(
+      data: token == null
+          ? null
+          : {
+              'token': token,
+              'platform': PushService.platform,
+            },
+    ));
   }
 }

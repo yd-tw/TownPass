@@ -89,3 +89,6 @@ app.*.map.json
 
 # FVM Version Cache
 .fvm/
+# Firebase 憑證（絕對不可提交）
+*firebase-adminsdk*.json
+/google-services.json
