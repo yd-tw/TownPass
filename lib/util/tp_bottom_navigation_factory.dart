@@ -33,6 +33,9 @@ class TPBottomNavigationFactory {
         const BillView(),
       ];
 
+  /// 各分頁的識別碼，順序同 [viewList]（問題回報記錄所在分頁用）
+  static const List<String> tabIds = ['service', 'home', 'perk', 'bill'];
+
   /// default to "Home" page (index = 1)
   static int get defaultIndex => 1;
 }

@@ -193,7 +193,8 @@ abstract class TPRoute {
     ),
   ];
 
-  static Future openUri({required String uri, String? forceTitle}) async {
+  /// [preventDuplicates] 為 false 時，目前已在 WebView 也會再開一層（GetX 預設會忽略重複的路由）
+  static Future openUri({required String uri, String? forceTitle, bool preventDuplicates = true}) async {
     if (uri.isEmpty) {
       return Future.value(null);
     }
@@ -208,6 +209,7 @@ abstract class TPRoute {
                 url: uri.toString(),
                 forceTitle: forceTitle,
               ),
+              preventDuplicates: preventDuplicates,
             ),
         },
     };

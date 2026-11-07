@@ -4,14 +4,17 @@ import 'dart:math';
 import 'dart:ui' as ui;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
-import 'package:flutter/widgets.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:get/get.dart';
 import 'package:town_pass/page/city_service/model/my_service_model.dart';
+import 'package:town_pass/page/main/main_view_controller.dart';
 import 'package:town_pass/service/account_service.dart';
 import 'package:town_pass/service/device_service.dart';
 import 'package:town_pass/service/package_service.dart';
+import 'package:town_pass/util/tp_app_bar.dart';
+import 'package:town_pass/util/tp_bottom_navigation_factory.dart';
 import 'package:town_pass/util/tp_route.dart';
 
 /// 問題回報（PoC）：截圖 → 遮蔽個資 → 預覽 → 帶到論壇。
@@ -40,6 +43,15 @@ class ReportService extends GetxService {
   static const int _maxRouteHistory = 10;
   static final List<String> _routeHistory = [];
 
+  /// 最上層的路由（可能是對話框或底部彈窗）
+  static Route<dynamic>? _topRoute;
+
+  /// 最上層的頁面（不含對話框、底部彈窗）
+  static Route<dynamic>? _pageRoute;
+
+  /// WebView 網址中可以保留的 query 參數（其餘可能含 token，一律刪除）
+  static Set<String> _allowedQueryKeys(String host) => host == forumHost ? const {'question'} : const {};
+
   static const int _maxImageSide = 1280;
   static const Duration _draftTtl = Duration(minutes: 10);
 
@@ -54,6 +66,15 @@ class ReportService extends GetxService {
 
   /// GetMaterialApp.routingCallback
   static void onRoute(Routing? routing) {
+    // GetX 在 push 時給新路由、pop 時給上一個路由，所以就是目前最上層的路由
+    final Route<dynamic>? top = routing?.route;
+    if (top != null) {
+      _topRoute = top;
+      if (top is PageRoute) {
+        _pageRoute = top;
+      }
+    }
+
     final String? route = routing?.current;
     if (route == null || route.isEmpty) {
       return;
@@ -80,7 +101,7 @@ class ReportService extends GetxService {
     }
     _capturing = true;
     try {
-      await _recordWebUrl();
+      await _recordScreen();
       // 在進入預覽頁前記錄，避免路由變成 /report_preview
       _pendingContext = _diagnostics();
       pendingImage = await _capture();
@@ -106,7 +127,8 @@ class ReportService extends GetxService {
     pendingImage = null;
     _pendingContext = null;
     Get.back();
-    await TPRoute.openUri(uri: forumReportUrl);
+    // 從 WebView（例如論壇本身）回報時，也要再開一層論壇
+    await TPRoute.openUri(uri: forumReportUrl, preventDuplicates: false);
   }
 
   void discard() {
@@ -186,22 +208,34 @@ class ReportService extends GetxService {
     }
   }
 
-  /// 目前畫面最上層、可見的 WebView
+  /// 目前頁面上的 WebView（上面開著對話框時也算）
   _WebViewEntry? _activeWebView() {
     _webViews.removeWhere((entry) => entry.key.currentContext == null);
     for (final _WebViewEntry entry in _webViews.reversed) {
       final BuildContext? context = entry.key.currentContext;
-      if (context != null && (ModalRoute.of(context)?.isCurrent ?? false)) {
+      if (context != null && _isOnTopPage(context)) {
         return entry;
       }
     }
     return null;
   }
 
+  /// [context] 是否屬於目前最上層的頁面
+  static bool _isOnTopPage(BuildContext context) {
+    final ModalRoute<dynamic>? route = ModalRoute.of(context);
+    if (route == null) {
+      return false;
+    }
+    final Route<dynamic>? page = _pageRoute;
+    return page != null && page.isActive ? identical(route, page) : route.isCurrent;
+  }
+
   Map<String, dynamic> _diagnostics() {
     final device = Get.find<DeviceService>().androidDeviceInfo;
     final String? webUrl = _activeWebUrl;
     return {
+      'screen': _screen ?? currentRoute.value,
+      'screenTitle': _screenTitle,
       'route': currentRoute.value,
       'routeHistory': List<String>.from(_routeHistory),
       'webUrl': webUrl,
@@ -219,10 +253,85 @@ class ReportService extends GetxService {
   /// 截圖當下的診斷資訊
   Map<String, dynamic>? _pendingContext;
 
-  /// 截圖當下記錄 WebView 網址（只留 scheme、host、path，避免帶出 query 中的 token）
-  Future<void> _recordWebUrl() async {
+  /// 截圖當下所在畫面的識別字串，例如 `/account`、`/#home`、`web:tp2026.ydtw.net/new+dialog`
+  String? _screen;
+
+  /// 截圖當下標題列的文字
+  String? _screenTitle;
+
+  /// 截圖當下記錄所在畫面
+  Future<void> _recordScreen() async {
+    final String route = currentRoute.value.split('?').first;
     final WebUri? url = await _activeWebView()?.controller.getUrl();
+
+    // WebView 網址只留 scheme、host、path，避免帶出 query 中的 token
     _activeWebUrl = url == null ? null : '${url.scheme}://${url.host}${url.path}';
+
+    String screen;
+    if (url != null) {
+      final Set<String> allowed = _allowedQueryKeys(url.host);
+      final Map<String, String> query = {
+        for (final MapEntry<String, String> entry in url.queryParameters.entries)
+          if (allowed.contains(entry.key)) entry.key: entry.value,
+      };
+      screen = 'web:${url.host}${url.path}${query.isEmpty ? '' : '?${Uri(queryParameters: query).query}'}';
+    } else if (route == TPRoute.main) {
+      screen = '$route#${_mainTabId() ?? 'unknown'}';
+    } else {
+      screen = route;
+    }
+
+    final String? overlay = _overlayKind();
+    _screen = overlay == null ? screen : '$screen+$overlay';
+    _screenTitle = route == TPRoute.main ? _mainTabLabel() : _appBarTitle() ?? _fallbackTitles[route];
+  }
+
+  /// 標題列沒有文字的頁面，改用入口按鈕上的名稱
+  static const Map<String, String> _fallbackTitles = {TPRoute.account: '帳戶'};
+
+  /// 最上層開著對話框或底部彈窗時回傳 `dialog` / `sheet`
+  static String? _overlayKind() {
+    final Route<dynamic>? top = _topRoute;
+    if (top == null || top is! PopupRoute || !top.isActive) {
+      return null;
+    }
+    return top is ModalBottomSheetRoute || (Get.isBottomSheetOpen ?? false) ? 'sheet' : 'dialog';
+  }
+
+  static int? _mainTabIndex() =>
+      Get.isRegistered<MainViewController>() ? Get.find<MainViewController>().currentIndex.value : null;
+
+  static String? _mainTabId() {
+    final int? index = _mainTabIndex();
+    final List<String> ids = TPBottomNavigationFactory.tabIds;
+    return index != null && index >= 0 && index < ids.length ? ids[index] : null;
+  }
+
+  static String? _mainTabLabel() {
+    final int? index = _mainTabIndex();
+    final List<BottomNavigationBarItem> items = TPBottomNavigationFactory.barItemList;
+    return index != null && index >= 0 && index < items.length ? items[index].label : null;
+  }
+
+  /// 目前頁面上 [TPAppBar] 顯示的標題（WebView 頁面就是網頁 `<title>`）
+  static String? _appBarTitle() {
+    String? title;
+    void visit(Element element) {
+      final Widget widget = element.widget;
+      if (widget is TPAppBar && _isOnTopPage(element)) {
+        final String? value = widget.currentTitle;
+        if (value != null && value.trim().isNotEmpty) {
+          title = value.trim(); // 取最後一個，也就是最上層的
+        }
+      }
+      element.visitChildElements(visit);
+    }
+
+    final BuildContext? root = boundaryKey.currentContext;
+    if (root is Element) {
+      root.visitChildElements(visit);
+    }
+    return title;
   }
 
   static String _randomId() {

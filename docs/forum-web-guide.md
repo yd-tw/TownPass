@@ -103,6 +103,10 @@ export type ReportDraft = {
   /** PNG data URL；使用者未附截圖時為 null */
   image: string | null;
   context: {
+    /** 截圖時所在畫面，例如 `/account`、`/#home`、`web:tp2026.ydtw.net/new`；格式見 webview-bridge-spec.md §4.10 */
+    screen?: string;
+    /** 截圖時標題列的文字 */
+    screenTitle?: string | null;
     route: string;
     routeHistory: string[];
     webUrl: string | null;
@@ -191,7 +195,7 @@ await createQuestion(token, {
   category, // 一般發文不傳，交給後端自動分類
   // 裝置資訊放 context.extra，不併入內文
   context: draft
-    ? { service_id: 'townpass-app', service_name: 'Town Pass', page_route: draft.context.route.split('?')[0], extra: { reportId: draft.id, ...draft.context } }
+    ? { service_id: 'townpass-app', service_name: 'Town Pass', page_route: (draft.context.screen ?? draft.context.route).replace(/?[^+]*/, ''), page_title: draft.context.screenTitle ?? undefined, extra: { reportId: draft.id, ...draft.context } }
     : null,
   client_request_id: draft?.id ?? fallbackRequestId, // 防重送
   // …language、assistance_mode 等其他欄位

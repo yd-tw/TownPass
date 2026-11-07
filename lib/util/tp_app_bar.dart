@@ -33,6 +33,9 @@ class TPAppBar extends StatelessWidget implements PreferredSizeWidget {
 
   TPAppBarController get _titleController => controller ?? TPAppBarController(title);
 
+  /// 目前顯示的標題（問題回報記錄頁面名稱用）
+  String? get currentTitle => controller?.title.value ?? title;
+
   @override
   Widget build(BuildContext context) {
     return AppBar(

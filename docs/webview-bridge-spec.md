@@ -291,6 +291,8 @@ if (draft) {
   "description": "按下送出沒有反應",
   "image": "data:image/png;base64,iVBORw0K...",
   "context": {
+    "screen": "/account",
+    "screenTitle": "帳戶",
     "route": "/account",
     "routeHistory": ["/", "/account"],
     "webUrl": null,
@@ -307,6 +309,8 @@ if (draft) {
 | 欄位 | 說明 |
 |---|---|
 | `image` | PNG data URL；使用者關閉「附上截圖」時為 `null`。個資已遮蔽（App 原生畫面以色塊、網頁以模糊） |
+| `context.screen` | 截圖時所在畫面：一般頁面為路由（`/account`）；首頁加分頁（`/#service`、`/#home`、`/#perk`、`/#bill`）；WebView 為 `web:` + host + path，query 只保留白名單參數（論壇的 `question`，例如 `web:tp2026.ydtw.net/?question=12`）；開著對話框或底部彈窗時結尾加 `+dialog` / `+sheet`。舊版 App 沒有此欄位 |
+| `context.screenTitle` | 截圖時標題列的文字；首頁為分頁名稱，WebView 為網頁 `<title>`；取不到時為 `null` |
 | `context.route` / `routeHistory` | 回報時所在的 App 頁面與最近 10 次頁面切換 |
 | `context.webUrl` | 回報時所在 WebView 的網址，只保留 scheme、host、path（去除 query 與 hash） |
 
