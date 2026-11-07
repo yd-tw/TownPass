@@ -5,6 +5,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/foundation.dart';
 import 'package:get/get.dart';
+import 'package:town_pass/service/chat_unread_service.dart';
 import 'package:town_pass/service/notification_service.dart';
 
 /// FCM 推播服務
@@ -89,6 +90,10 @@ class PushService extends GetxService {
   }
 
   void _showForegroundMessage(RemoteMessage message) {
+    // 論壇回覆等推播：更新按鈕上的未讀數
+    if (Get.isRegistered<ChatUnreadService>()) {
+      Get.find<ChatUnreadService>().reload();
+    }
     final RemoteNotification? notification = message.notification;
     final String? title = notification?.title ?? message.data['title'] as String?;
     final String? body = notification?.body ?? message.data['body'] as String?;

@@ -102,9 +102,12 @@ class TPWebView extends StatelessWidget {
             controller.loadData(data: _failedToLoadUrlData(url: url));
           }
         },
-        onUpdateVisitedHistory: (_, __, ___) async {
+        onUpdateVisitedHistory: (controller, url, _) async {
+          // 單頁網站換頁（pushState）也會進來，回報按鈕依網址切換成聊天按鈕
+          ReportService.updateWebUrl(controller, url);
           canGoBack.value = await webViewController.value?.canGoBack() ?? false;
         },
+        onLoadStop: (controller, url) => ReportService.updateWebUrl(controller, url),
         onTitleChanged: (_, title) {
           appBarController.title.value = switch (forceTitle == null) {
             true => title,

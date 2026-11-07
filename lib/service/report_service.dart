@@ -31,6 +31,15 @@ class ReportService extends GetxService {
   /// 只有這個網域可以讀取草稿
   static String get forumHost => Uri.parse(MyServiceItemId.forum.item.destinationUrl).host;
 
+  /// 論壇聊天列表
+  static String get forumChatUrl {
+    final Uri forum = Uri.parse(MyServiceItemId.forum.item.destinationUrl);
+    return forum.replace(path: '/chat').toString();
+  }
+
+  /// 最上層頁面是論壇「我要發問」（/new）：回報按鈕改成聊天按鈕
+  static final RxBool onAskPage = RxBool(false);
+
   /// 為 true 時，所有 [Sensitive] 元件改畫成色塊
   static final RxBool maskMode = RxBool(false);
 
@@ -77,6 +86,9 @@ class ReportService extends GetxService {
       return;
     }
     currentRoute.value = route;
+    // routingCallback 當下新頁面可能還沒成為最上層，等這一幀結束再判斷一次
+    _updateAskPage();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _updateAskPage());
     if (_routeHistory.isEmpty || _routeHistory.last != route) {
       _routeHistory.add(route);
       if (_routeHistory.length > _maxRouteHistory) {
@@ -89,6 +101,31 @@ class ReportService extends GetxService {
   static void registerWebView(InAppWebViewController controller, GlobalKey key) {
     _webViews.removeWhere((entry) => entry.key.currentContext == null);
     _webViews.add(_WebViewEntry(controller, key));
+  }
+
+  /// TPWebView 網址改變（含 pushState）時呼叫
+  static void updateWebUrl(InAppWebViewController controller, Uri? url) {
+    for (final _WebViewEntry entry in _webViews) {
+      if (identical(entry.controller, controller)) {
+        entry.url = url;
+      }
+    }
+    _updateAskPage();
+  }
+
+  static void _updateAskPage() {
+    final Uri? url = _activeWebView()?.url;
+    onAskPage.value = url != null && url.host == forumHost && url.path == '/new';
+  }
+
+  /// 聊天按鈕：在目前的論壇 WebView 換成聊天列表，不在論壇時另開一層
+  static Future<void> openChat() async {
+    final _WebViewEntry? webView = _activeWebView();
+    if (webView != null && webView.url?.host == forumHost) {
+      await webView.controller.loadUrl(urlRequest: URLRequest(url: WebUri(forumChatUrl)));
+      return;
+    }
+    await TPRoute.openUri(uri: forumChatUrl);
   }
 
   /// 截圖後直接開啟論壇「我要發問」，由網頁讀取草稿帶入截圖
@@ -195,7 +232,7 @@ class ReportService extends GetxService {
   }
 
   /// 目前頁面上的 WebView（上面開著對話框時也算）
-  _WebViewEntry? _activeWebView() {
+  static _WebViewEntry? _activeWebView() {
     _webViews.removeWhere((entry) => entry.key.currentContext == null);
     for (final _WebViewEntry entry in _webViews.reversed) {
       final BuildContext? context = entry.key.currentContext;
@@ -371,7 +408,10 @@ class _WebViewEntry {
   final InAppWebViewController controller;
   final GlobalKey key;
 
-  const _WebViewEntry(this.controller, this.key);
+  /// 目前網址（scheme、host、path 用來判斷頁面，不會送出）
+  Uri? url;
+
+  _WebViewEntry(this.controller, this.key);
 }
 
 class _ReportDraft {

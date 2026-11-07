@@ -6,6 +6,7 @@ import 'package:geolocator/geolocator.dart';
 import 'package:get/get.dart';
 import 'package:town_pass/gen/assets.gen.dart';
 import 'package:town_pass/service/account_service.dart';
+import 'package:town_pass/service/chat_unread_service.dart';
 import 'package:town_pass/service/device_service.dart';
 import 'package:town_pass/service/geo_locator_service.dart';
 import 'package:town_pass/service/notification_service.dart';
@@ -313,6 +314,25 @@ class PushTokenMessageHandler extends TPWebMessageHandler {
 
 /// 取得問題回報草稿（截圖 base64、描述、診斷資訊）。
 /// 僅論壇網域可讀取，且只能讀一次；無草稿時回覆 null。
+/// 論壇把聊天通知標為已讀後通知 App 重抓未讀數；不回覆
+class ChatUnreadChangedMessageHandler extends TPWebMessageHandler {
+  @override
+  String get name => 'chat_unread_changed';
+
+  @override
+  Future<void> handle({
+    required Object? message,
+    required WebUri? sourceOrigin,
+    required bool isMainFrame,
+    required onReply,
+  }) async {
+    if (sourceOrigin?.host != ReportService.forumHost || !Get.isRegistered<ChatUnreadService>()) {
+      return;
+    }
+    await Get.find<ChatUnreadService>().reload();
+  }
+}
+
 class ReportDraftMessageHandler extends TPWebMessageHandler {
   @override
   String get name => 'report_draft';

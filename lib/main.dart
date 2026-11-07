@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:town_pass/gen/assets.gen.dart';
 import 'package:town_pass/service/account_service.dart';
+import 'package:town_pass/service/chat_unread_service.dart';
 import 'package:town_pass/service/device_service.dart';
 import 'package:town_pass/service/geo_locator_service.dart';
 import 'package:town_pass/service/notification_service.dart';
@@ -43,6 +44,7 @@ Future<void> initServices() async {
 
   Get.put<SubscriptionService>(SubscriptionService());
   Get.put<ReportService>(ReportService());
+  Get.put<ChatUnreadService>(ChatUnreadService());
 }
 
 class MyApp extends StatelessWidget {

@@ -117,6 +117,7 @@ initBridge();
 | `notify` | 顯示系統通知 | `{ title, content, url? }` | 成功不回覆；格式錯誤回 `false` |
 | `push_token` | 取得 FCM 推播 token | `null` | `{ token, platform }` 或 `null`，見 [fcm-push-spec.md](./fcm-push-spec.md) |
 | `report_draft` | 取得問題回報草稿（僅論壇網域） | `null` | 草稿物件或 `null`，見 4.10 |
+| `chat_unread_changed` | 請 App 重抓聊天未讀數（僅論壇網域） | `null` | 不回覆，見 4.11 |
 
 ### 4.1 `userinfo`
 
@@ -318,6 +319,24 @@ if (draft) {
 - **只有論壇網域**（`tp2026.ydtw.net`）可讀取，其他網域一律回 `null`。
 - **只能讀一次**，讀取後即從 App 記憶體刪除；送出後 10 分鐘未讀取也會作廢。
 - 論壇自己的頁面請在個資元素加上 `data-sensitive` 屬性，截圖時會被模糊。
+- 在論壇 `/new` 頁面上，回報按鈕會換成**聊天按鈕**（對話框加三個點），點了在同一個 WebView 開啟 `/chat`。離開 `/new`（含網頁用 `pushState` 換頁）後恢復成回報按鈕。
+
+### 4.11 `chat_unread_changed`（聊天未讀數）
+
+回報按鈕和聊天按鈕在聊天有未讀訊息時，右上角會顯示紅色數字（超過 99 顯示 `99+`）。
+
+App 自己算未讀數：用 `userinfo.id` 向論壇後端 `POST /sessions` 取得 token，再呼叫 `GET /notifications?unread_only=true`，只計算和自己問題有關的類型：`new_answer`、`answer_accepted`、`assist_claimed`、`assist_arrived`、`assist_completed`、`assist_cancelled`（`nearby_question`、`badge_earned` 等不算）。
+
+App 在這些時候重抓：啟動、回到前景、前景收到推播、切換頁面（例如關掉 WebView）、前景時每 60 秒一次，以及收到這個訊息時。
+
+論壇把通知標為已讀（`POST /notifications/read`）後，送出這個訊息讓紅色數字立刻更新。App 不會回覆，請直接 `postMessage`，不要用會等回覆的 `callApp`：
+
+```js
+flutterObject.postMessage(JSON.stringify({ name: 'chat_unread_changed', data: null }));
+```
+
+- 只接受論壇網域（`tp2026.ydtw.net`）送來的訊息，其他網域會被忽略。
+- 未讀數完全由後端通知的已讀狀態決定。論壇沒把通知標為已讀，紅色數字就不會消失。
 
 ---
 

@@ -17,6 +17,7 @@
 | 3 | `/new`「我要發問」支援問題回報帶入截圖 | **必要** | `src/app/new/page.tsx`、`src/app/ui/line/line-app.tsx`、`chat-room.tsx` |
 | 4 | 個資元素加上 `data-sensitive` | 建議 | 顯示個資的元件 |
 | 5 | 同步推播 token | 選用 | 登入後執行的元件 |
+| 6 | 打開聊天室時標記已讀並通知 App | **必要** | `src/app/ui/line/line-app.tsx`、`api/http-api.ts`、`src/lib/townpass-bridge.ts` |
 
 ---
 
@@ -284,7 +285,8 @@ if (typeof window !== 'undefined' && !window.flutterObject) {
 2. 應直接進入論壇「我要發問」的新問題聊天室，截圖在輸入列的待傳附件，可以移除。
 3. 打字或錄音說明後送出，確認問題附有截圖，`context.page_route` 是按回報按鈕（問號）時的畫面。
 4. 重新整理頁面，應不再帶入（草稿只能讀一次）。
-5. 在論壇頁面內按回報按鈕（問號），應再開一層「我要發問」。
+5. 在論壇「我要發問」（`/new`）時，按鈕應變成聊天按鈕（對話框加三個點），按下後同一個 WebView 換成 `/chat`，按鈕恢復成回報按鈕。
+6. 在論壇其他頁面（`/chat`、`/forum`）按回報按鈕（問號），應再開一層「我要發問」。
 
 在一般瀏覽器開發時錄音也能直接測（`localhost` 允許 `getUserMedia`），不需要 mock。
 
@@ -335,3 +337,31 @@ export function PushTokenSync() {
 ```
 
 後端發送方式、資料表設計與錯誤處理見 [`fcm-push-spec.md`](./fcm-push-spec.md)。
+
+---
+
+## 6. 打開聊天室時標記已讀並通知 App
+
+App 的回報／聊天按鈕會顯示聊天未讀數（紅色數字），這個數字來自後端通知的已讀狀態（規格見 [`webview-bridge-spec.md`](./webview-bridge-spec.md) §4.11）。論壇要在使用者看過聊天室後把通知標為已讀，否則數字永遠不會消失。
+
+實作在 `TownPass-2026-web`：
+
+| 檔案 | 內容 |
+|---|---|
+| `src/app/ui/line/api/http-api.ts` | `markQuestionRead(questionId)`：抓未讀通知，篩出這一題的，再 `POST /notifications/read`（帶 `ids`），回傳標記幾則 |
+| `src/lib/townpass-bridge.ts` | `postToApp(name, data)`：送訊息給 App、不等回覆 |
+| `src/app/ui/line/line-app.tsx` | 打開聊天室，或正在看的聊天室收到新回覆時，呼叫 `markRead`；有標記到通知才送 `chat_unread_changed` |
+
+```tsx
+const markRead = useCallback((id: string) => {
+  api.markQuestionRead(id)
+    .then((count) => { if (count > 0) postToApp('chat_unread_changed'); })
+    .catch(() => {}); // 標記失敗不影響聊天；下次打開再標
+}, [api]);
+
+useEffect(() => {
+  if (activeId) markRead(activeId);
+}, [activeId, markRead]);
+```
+
+測試：用另一個帳號回覆自己的問題，App 的按鈕應出現紅色數字。打開那個聊天室後，數字應立刻消失。

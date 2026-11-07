@@ -1,10 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:get/get.dart';
+import 'package:town_pass/service/chat_unread_service.dart';
 import 'package:town_pass/service/report_service.dart';
 import 'package:town_pass/util/tp_colors.dart';
 
 /// 全域「回報問題」按鈕，疊在所有頁面右下角。
+/// 在論壇「我要發問」（/new）時改成聊天按鈕，點了進入論壇聊天列表。
+/// 兩種按鈕在聊天有未讀訊息時，右上角都會顯示紅色數字。
 /// 使用者長按後可以拖曳到螢幕上任意位置（只在本次執行期間記住位置）。
 /// 位於截圖範圍（RepaintBoundary）之外，不會出現在截圖中。
 class ReportButton extends StatefulWidget {
@@ -27,6 +30,16 @@ class _ReportButtonState extends State<ReportButton> {
   <path d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719"/>
   <path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/>
   <path d="M12 17h.01"/>
+</svg>
+''';
+
+  /// 聊天按鈕：對話框裡三個點（Lucide `message-circle-more`，ISC 授權）
+  static const String _chatIcon = '''
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="#000" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+  <path d="M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719"/>
+  <path d="M8 12h.01"/>
+  <path d="M12 12h.01"/>
+  <path d="M16 12h.01"/>
 </svg>
 ''';
 
@@ -96,26 +109,68 @@ class _ReportButtonState extends State<ReportButton> {
         child: AnimatedScale(
           scale: _dragging ? 1.1 : 1,
           duration: const Duration(milliseconds: 150),
-          child: Material(
-            color: TPColors.white,
-            shape: const CircleBorder(side: BorderSide(color: TPColors.primary500, width: 1.5)),
-            elevation: _dragging ? 8 : 4,
-            child: InkWell(
-              customBorder: const CircleBorder(),
-              onTap: () => Get.find<ReportService>().startReport(),
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: SvgPicture.string(
-                  _questionIcon,
-                  width: 28,
-                  height: 28,
-                  colorFilter: const ColorFilter.mode(TPColors.primary500, BlendMode.srcIn),
-                  semanticsLabel: '回報問題',
+          child: Obx(() {
+            final bool chat = ReportService.onAskPage.value;
+            final int unread = Get.find<ChatUnreadService>().unreadCount.value;
+            final String label = chat ? '聊天' : '回報問題';
+            return Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Material(
+                  color: TPColors.white,
+                  shape: const CircleBorder(side: BorderSide(color: TPColors.primary500, width: 1.5)),
+                  elevation: _dragging ? 8 : 4,
+                  child: InkWell(
+                    customBorder: const CircleBorder(),
+                    onTap: chat ? ReportService.openChat : () => Get.find<ReportService>().startReport(),
+                    child: Padding(
+                      padding: const EdgeInsets.all(12),
+                      child: SvgPicture.string(
+                        chat ? _chatIcon : _questionIcon,
+                        width: 28,
+                        height: 28,
+                        colorFilter: const ColorFilter.mode(TPColors.primary500, BlendMode.srcIn),
+                        semanticsLabel: unread > 0 ? '$label，$unread 則未讀訊息' : label,
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-            ),
-          ),
+                if (unread > 0)
+                  Positioned(
+                    top: -4,
+                    right: -4,
+                    child: IgnorePointer(child: ExcludeSemantics(child: _UnreadBadge(count: unread))),
+                  ),
+              ],
+            );
+          }),
         ),
+      ),
+    );
+  }
+}
+
+/// 紅色未讀數字，超過 99 顯示 99+
+class _UnreadBadge extends StatelessWidget {
+  final int count;
+
+  const _UnreadBadge({required this.count});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      constraints: const BoxConstraints(minWidth: 22, minHeight: 22),
+      padding: const EdgeInsets.symmetric(horizontal: 5),
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: TPColors.red600,
+        borderRadius: BorderRadius.circular(11),
+        border: Border.all(color: TPColors.white, width: 1.5),
+      ),
+      child: Text(
+        count > 99 ? '99+' : '$count',
+        style: const TextStyle(color: TPColors.white, fontSize: 12, fontWeight: FontWeight.w700, height: 1.1),
+        textScaler: TextScaler.noScaling,
       ),
     );
   }

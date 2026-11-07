@@ -18,6 +18,7 @@ abstract class TPWebMessageListener {
         QRCodeScanMessageHandler(),
         PushTokenMessageHandler(),
         ReportDraftMessageHandler(),
+        ChatUnreadChangedMessageHandler(),
       ];
 
   static List<TPWebMessageHandler> get messageHandler => _cachedMessageHandlers;
