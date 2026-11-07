@@ -120,7 +120,7 @@ class TPWebView extends StatelessWidget {
         },
         onPermissionRequest: (_, request) async => PermissionResponse(
           resources: request.resources,
-          action: await _canGrant(request) ? PermissionResponseAction.GRANT : PermissionResponseAction.DENY,
+          action: await canGrantForumPermission(request) ? PermissionResponseAction.GRANT : PermissionResponseAction.DENY,
         ),
         onCloseWindow: (_) => Get.back(),
       ),
@@ -144,7 +144,7 @@ class TPWebView extends StatelessWidget {
   static Set<String> get _microphoneHosts => {ReportService.forumHost};
 
   /// 網頁要求麥克風時：只允許白名單網域、只允許麥克風，並先取得 App 的系統權限
-  static Future<bool> _canGrant(PermissionRequest request) async {
+  static Future<bool> canGrantForumPermission(PermissionRequest request) async {
     if (!_microphoneHosts.contains(request.origin.host)) {
       return false;
     }

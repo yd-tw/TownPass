@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:town_pass/page/city_service/model/my_service_model.dart';
 import 'package:town_pass/page/main/main_view_controller.dart';
+import 'package:town_pass/service/report_service.dart';
 import 'package:town_pass/util/tp_bottom_navigation_factory.dart';
 import 'package:town_pass/util/tp_colors.dart';
-import 'package:town_pass/util/tp_route.dart';
 
 class MainView extends GetView<MainViewController> {
   const MainView({super.key});
@@ -12,12 +11,13 @@ class MainView extends GetView<MainViewController> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Obx(
-        () => IndexedStack(
-          index: controller.currentIndex.value,
-          children: TPBottomNavigationFactory.viewList,
-        ),
-      ),
+      body: Obx(() {
+        final int index = controller.currentIndex.value;
+        return IndexedStack(
+          index: index,
+          children: TPBottomNavigationFactory.viewList(index),
+        );
+      }),
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
           boxShadow: [
@@ -26,7 +26,7 @@ class MainView extends GetView<MainViewController> {
               blurRadius: 16,
               offset: Offset(0, -10),
               spreadRadius: 0,
-            )
+            ),
           ],
         ),
         child: Obx(
@@ -46,11 +46,8 @@ class MainView extends GetView<MainViewController> {
             showUnselectedLabels: true,
             currentIndex: controller.currentIndex.value,
             onTap: (index) {
-              if (index == TPBottomNavigationFactory.forumIndex) {
-                TPRoute.openUri(uri: MyServiceItemId.forum.item.destinationUrl);
-                return;
-              }
               controller.currentIndex.value = index;
+              ReportService.refreshActivePage();
             },
           ),
         ),

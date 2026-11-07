@@ -97,11 +97,14 @@ class ReportService extends GetxService {
     }
   }
 
-  /// TPWebView 建立時登記，截圖時用來另外擷取 WebView 畫面
-  static void registerWebView(InAppWebViewController controller, GlobalKey key) {
+  /// WebView 建立時登記，截圖時用來另外擷取 WebView 畫面
+  static void registerWebView(InAppWebViewController controller, GlobalKey key, {int? mainTabIndex}) {
     _webViews.removeWhere((entry) => entry.key.currentContext == null);
-    _webViews.add(_WebViewEntry(controller, key));
+    _webViews.add(_WebViewEntry(controller, key, mainTabIndex: mainTabIndex));
   }
+
+  /// 切換底部分頁後重新判斷目前是否位於發問頁。
+  static void refreshActivePage() => _updateAskPage();
 
   /// TPWebView 網址改變（含 pushState）時呼叫
   static void updateWebUrl(InAppWebViewController controller, Uri? url) {
@@ -235,6 +238,11 @@ class ReportService extends GetxService {
   static _WebViewEntry? _activeWebView() {
     _webViews.removeWhere((entry) => entry.key.currentContext == null);
     for (final _WebViewEntry entry in _webViews.reversed) {
+      if (entry.mainTabIndex != null &&
+          (!Get.isRegistered<MainViewController>() ||
+              Get.find<MainViewController>().currentIndex.value != entry.mainTabIndex)) {
+        continue;
+      }
       final BuildContext? context = entry.key.currentContext;
       if (context != null && _isOnTopPage(context)) {
         return entry;
@@ -407,11 +415,12 @@ class ReportService extends GetxService {
 class _WebViewEntry {
   final InAppWebViewController controller;
   final GlobalKey key;
+  final int? mainTabIndex;
 
   /// 目前網址（scheme、host、path 用來判斷頁面，不會送出）
   Uri? url;
 
-  _WebViewEntry(this.controller, this.key);
+  _WebViewEntry(this.controller, this.key, {this.mainTabIndex});
 }
 
 class _ReportDraft {

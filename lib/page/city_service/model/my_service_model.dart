@@ -189,7 +189,7 @@ extension MyServiceIdExt on MyServiceItemId {
           description: '市民交流討論區',
           icon: Assets.svg.iconCommunityService.svg(),
           category: MyServiceCategory.other,
-          destinationUrl: 'https://tp2026.ydtw.net/',
+          destinationUrl: 'https://tp2026.ydtw.net/forum',
         ),
     };
   }
