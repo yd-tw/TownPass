@@ -273,7 +273,7 @@ flutterObject.postMessage(JSON.stringify({
 
 ### 4.10 `report_draft`（問題回報）
 
-使用者在 App 任一畫面按左下角 🐞（或長按「論壇」按鈕）→ 預覽確認 → 「送到論壇」後，App 開啟 `https://tp2026.ydtw.net/?source=app-report`。論壇偵測到 `source=app-report` 時呼叫：
+使用者在 App 任一畫面按左下角 🐞（或長按「論壇」按鈕）→ 預覽確認 → 「送到論壇」後，App 開啟 `https://tp2026.ydtw.net/new?source=app-report`。論壇偵測到 `source=app-report` 時呼叫：
 
 ```js
 const draft = await callApp('report_draft');

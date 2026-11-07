@@ -22,7 +22,7 @@ class ReportService extends GetxService {
   /// 論壇開啟回報草稿的網址；論壇偵測 `source=app-report` 後呼叫 `report_draft`
   static String get forumReportUrl {
     final Uri forum = Uri.parse(MyServiceItemId.forum.item.destinationUrl);
-    return forum.replace(queryParameters: {'source': 'app-report'}).toString();
+    return forum.replace(path: '/new', queryParameters: {'source': 'app-report'}).toString();
   }
 
   /// 只有這個網域可以讀取草稿
