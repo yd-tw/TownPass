@@ -1,9 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:town_pass/page/city_service/model/my_service_model.dart';
 import 'package:town_pass/page/main/main_view_controller.dart';
-import 'package:town_pass/service/shared_preferences_service.dart';
 import 'package:town_pass/util/tp_bottom_navigation_factory.dart';
 import 'package:town_pass/util/tp_colors.dart';
+import 'package:town_pass/util/tp_route.dart';
 
 class MainView extends GetView<MainViewController> {
   const MainView({super.key});
@@ -44,7 +45,13 @@ class MainView extends GetView<MainViewController> {
             ),
             showUnselectedLabels: true,
             currentIndex: controller.currentIndex.value,
-            onTap: (index) => controller.currentIndex.value = index,
+            onTap: (index) {
+              if (index == TPBottomNavigationFactory.forumIndex) {
+                TPRoute.openUri(uri: MyServiceItemId.forum.item.destinationUrl);
+                return;
+              }
+              controller.currentIndex.value = index;
+            },
           ),
         ),
       ),
