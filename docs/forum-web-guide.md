@@ -133,7 +133,7 @@ export type PushToken = { token: string; platform: 'android' | 'ios' };
 ### 3.1 流程
 
 ```
-App 任一畫面按 🐞
+App 任一畫面按回報按鈕（問號）
   → App 截圖、遮蔽個資（沒有預覽頁）
   → 開啟 https://tp2026.ydtw.net/new?source=app-report
   → 頁面偵測 source=app-report，呼叫 callApp('report_draft')，並從網址移除 source
@@ -281,11 +281,11 @@ if (typeof window !== 'undefined' && !window.flutterObject) {
 
 在 App 內實測：
 
-1. 在任一畫面點左下角 🐞。
+1. 在任一畫面點左下角回報按鈕（問號）。
 2. 應直接進入論壇「我要發問」的新問題聊天室，截圖在輸入列的待傳附件，可以移除。
-3. 打字或錄音說明後送出，確認問題附有截圖，`context.page_route` 是按 🐞 時的畫面。
+3. 打字或錄音說明後送出，確認問題附有截圖，`context.page_route` 是按回報按鈕（問號）時的畫面。
 4. 重新整理頁面，應不再帶入（草稿只能讀一次）。
-5. 在論壇頁面內按 🐞，應再開一層「我要發問」。
+5. 在論壇頁面內按回報按鈕（問號），應再開一層「我要發問」。
 
 在一般瀏覽器開發時錄音也能直接測（`localhost` 允許 `getUserMedia`），不需要 mock。
 

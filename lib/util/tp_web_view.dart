@@ -51,9 +51,19 @@ class TPWebView extends StatelessWidget {
   /// 問題回報截圖時用來定位 WebView
   final GlobalKey _webViewKey = GlobalKey();
 
+  /// 系統返回鍵：網頁有上一頁（含網頁用 pushState 疊的對話框、聊天室）就先退網頁，沒有才關閉 WebView
+  Future<void> _goBackOrClose() async {
+    final InAppWebViewController? controller = webViewController.value;
+    if (controller != null && await controller.canGoBack()) {
+      await controller.goBack();
+      return;
+    }
+    Get.back();
+  }
+
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
+    final Widget page = Scaffold(
       appBar: TPAppBar(
         backgroundColor: TPColors.primary500,
         foregroundColor: TPColors.white,
@@ -110,6 +120,19 @@ class TPWebView extends StatelessWidget {
           action: await _canGrant(request) ? PermissionResponseAction.GRANT : PermissionResponseAction.DENY,
         ),
         onCloseWindow: (_) => Get.back(),
+      ),
+    );
+
+    // 網頁沒有上一頁時照常關閉（保留 iOS 滑動返回）；有上一頁時攔下返回鍵交給網頁
+    return Obx(
+      () => PopScope(
+        canPop: !canGoBack.value,
+        onPopInvokedWithResult: (didPop, _) {
+          if (!didPop) {
+            _goBackOrClose();
+          }
+        },
+        child: page,
       ),
     );
   }
