@@ -234,6 +234,27 @@ class OpenLinkMessageHandler extends TPWebMessageHandler {
   }
 }
 
+/// 論壇的獨立聊天室返回時，關閉目前這層 App WebView。
+class CloseWebViewMessageHandler extends TPWebMessageHandler {
+  @override
+  String get name => 'close_webview';
+
+  @override
+  Future<void> handle({
+    required Object? message,
+    required WebUri? sourceOrigin,
+    required bool isMainFrame,
+    required Function(WebMessage reply)? onReply,
+  }) async {
+    if (!isMainFrame ||
+        sourceOrigin?.host != ReportService.forumHost ||
+        Get.currentRoute != TPRoute.webView) {
+      return;
+    }
+    Get.back();
+  }
+}
+
 class NotifyMessageHandler extends TPWebMessageHandler {
   @override
   String get name => 'notify';

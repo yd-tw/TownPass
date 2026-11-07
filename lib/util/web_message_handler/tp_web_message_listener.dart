@@ -14,6 +14,7 @@ abstract class TPWebMessageListener {
         LocationMessageHandler(),
         DeviceInfoMessageHandler(),
         OpenLinkMessageHandler(),
+        CloseWebViewMessageHandler(),
         NotifyMessageHandler(),
         QRCodeScanMessageHandler(),
         PushTokenMessageHandler(),
