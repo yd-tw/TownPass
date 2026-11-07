@@ -5,6 +5,7 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:get/get.dart';
+import 'package:permission_handler/permission_handler.dart' show Permission, PermissionActions, PermissionStatusGetters;
 import 'package:town_pass/gen/assets.gen.dart';
 import 'package:town_pass/service/report_service.dart';
 import 'package:town_pass/util/tp_app_bar.dart';
@@ -104,9 +105,31 @@ class TPWebView extends StatelessWidget {
           // should be deal individually (ask for user agreement)
           return GeolocationPermissionShowPromptResponse(origin: origin, allow: true, retain: true);
         },
+        onPermissionRequest: (_, request) async => PermissionResponse(
+          resources: request.resources,
+          action: await _canGrant(request) ? PermissionResponseAction.GRANT : PermissionResponseAction.DENY,
+        ),
         onCloseWindow: (_) => Get.back(),
       ),
     );
+  }
+
+  /// 可以在網頁中使用麥克風（getUserMedia）的網域
+  static Set<String> get _microphoneHosts => {ReportService.forumHost};
+
+  /// 網頁要求麥克風時：只允許白名單網域、只允許麥克風，並先取得 App 的系統權限
+  static Future<bool> _canGrant(PermissionRequest request) async {
+    if (!_microphoneHosts.contains(request.origin.host)) {
+      return false;
+    }
+    if (request.resources.isEmpty || request.resources.any((resource) => resource != PermissionResourceType.MICROPHONE)) {
+      return false;
+    }
+    // iOS 由系統在第一次錄音時自動詢問（NSMicrophoneUsageDescription）；Android 需由 App 先取得
+    if (defaultTargetPlatform != TargetPlatform.android) {
+      return true;
+    }
+    return (await Permission.microphone.request()).isGranted;
   }
 }
 

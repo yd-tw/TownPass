@@ -14,7 +14,7 @@
 |---|---|---|---|
 | 1 | 修改網站標題 | 建議 | `app/layout.tsx` |
 | 2 | 加入 App 橋接工具 | **必要** | `lib/townpass.ts`（新增） |
-| 3 | 新增 `/new` 發文頁，支援問題回報帶入 | **必要** | `app/new/page.tsx`、`app/new/NewPostForm.tsx`（新增） |
+| 3 | 新增 `/new` 發文頁，支援問題回報帶入與語音附件 | **必要** | `src/app/new/page.tsx`、`new-post-form.tsx`、`voice-recorder.tsx` |
 | 4 | 個資元素加上 `data-sensitive` | 建議 | 顯示個資的元件 |
 | 5 | 同步推播 token | 選用 | 登入後執行的元件 |
 
@@ -131,7 +131,8 @@ App「送到論壇」
   → 開啟 https://tp2026.ydtw.net/new?source=app-report
   → 頁面偵測 source=app-report，呼叫 callApp('report_draft')
   → 有草稿：分類預設「問題回報」、內文帶入描述與裝置資訊、顯示截圖附件
-  → 使用者確認後送出 → 截圖轉 Blob 上傳 → 發文
+  → 使用者可再錄一段語音說明（選填）
+  → 使用者確認後送出 → 截圖、語音各自上傳 POST /media → POST /questions 發文
 ```
 
 草稿**只能讀一次**、App 送出後 **10 分鐘內**有效，且**只有 `tp2026.ydtw.net` 網域**讀得到。因此：
@@ -141,153 +142,114 @@ App「送到論壇」
 
 ### 3.2 頁面
 
-```tsx
-// app/new/page.tsx
-import { Suspense } from 'react';
-import NewPostForm from './NewPostForm';
+實作在論壇專案 `TownPass-2026-web`：
 
-export const metadata = { title: '發表文章' };
-
-export default function NewPostPage() {
-  // useSearchParams 需要 Suspense 包住
-  return (
-    <Suspense>
-      <NewPostForm />
-    </Suspense>
-  );
-}
-```
-
-```tsx
-// app/new/NewPostForm.tsx
-'use client';
-
-import { useEffect, useRef, useState } from 'react';
-import { useSearchParams } from 'next/navigation';
-import { callApp, isInTownPass, type ReportDraft } from '@/lib/townpass';
-
-export default function NewPostForm() {
-  const searchParams = useSearchParams();
-  const isAppReport = searchParams.get('source') === 'app-report';
-
-  const [category, setCategory] = useState('general');
-  const [title, setTitle] = useState('');
-  const [content, setContent] = useState('');
-  const [image, setImage] = useState<string | null>(null); // data URL
-  const [draft, setDraft] = useState<ReportDraft | null>(null);
-  const [loadingDraft, setLoadingDraft] = useState(isAppReport);
-  const [submitting, setSubmitting] = useState(false);
-  const requested = useRef(false);
-
-  useEffect(() => {
-    if (!isAppReport || requested.current) return;
-    requested.current = true;
-
-    if (!isInTownPass()) {
-      setLoadingDraft(false);
-      return;
-    }
-
-    callApp<ReportDraft | null>('report_draft').then((d) => {
-      setLoadingDraft(false);
-      if (!d) return; // 已讀過、逾時或非 App 內
-      setDraft(d);
-      setCategory('app-report');
-      setTitle(d.description ? `[問題回報] ${d.description.slice(0, 30)}` : '[問題回報]');
-      setContent(d.description);
-      setImage(d.image);
-    });
-  }, [isAppReport]);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    setSubmitting(true);
-    try {
-      const form = new FormData();
-      form.append('category', category);
-      form.append('title', title);
-      form.append('content', content);
-      if (draft) {
-        form.append('reportId', draft.id);
-        form.append('deviceContext', JSON.stringify(draft.context));
-      }
-      if (image) {
-        // data URL → Blob（瀏覽器原生支援 fetch data URL）
-        const blob = await (await fetch(image)).blob();
-        form.append('image', blob, `report-${draft?.id ?? Date.now()}.png`);
-      }
-
-      // TODO: 換成論壇實際的發文 API
-      const res = await fetch('/api/posts', { method: 'POST', body: form });
-      if (!res.ok) throw new Error(await res.text());
-      const { id } = await res.json();
-      window.location.href = `/t/${id}`;
-    } catch (err) {
-      alert(`發文失敗：${(err as Error).message}`);
-      setSubmitting(false);
-    }
-  }
-
-  if (loadingDraft) {
-    return <p className="p-4">正在載入回報內容…</p>;
-  }
-
-  return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-4 p-4">
-      <select value={category} onChange={(e) => setCategory(e.target.value)}>
-        <option value="general">一般討論</option>
-        <option value="app-report">問題回報</option>
-      </select>
-
-      <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="標題" required />
-
-      <textarea value={content} onChange={(e) => setContent(e.target.value)} rows={6} placeholder="內容" required />
-
-      {image && (
-        <figure>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={image} alt="問題截圖" className="max-h-96 border" />
-          <button type="button" onClick={() => setImage(null)}>移除截圖</button>
-        </figure>
-      )}
-
-      {draft && (
-        <details>
-          <summary>裝置資訊（會一併送出）</summary>
-          <pre className="text-xs whitespace-pre-wrap">{JSON.stringify(draft.context, null, 2)}</pre>
-        </details>
-      )}
-
-      <button type="submit" disabled={submitting}>
-        {submitting ? '送出中…' : '發表'}
-      </button>
-    </form>
-  );
-}
-```
-
-> 截圖是 data URL，不需要 `next/image` 的圖片最佳化，所以這裡直接用原生 `<img>`。
-
-### 3.3 後端（發文 API）
-
-`/api/posts` 收到 `multipart/form-data`：
-
-| 欄位 | 說明 |
+| 檔案 | 內容 |
 |---|---|
-| `category` / `title` / `content` | 一般發文欄位 |
-| `image` | PNG 檔案（選填），請存到論壇的圖片儲存並在文章中引用 |
-| `reportId` | App 端草稿 ID（選填），可用來去重，避免同一份回報被發兩次 |
-| `deviceContext` | JSON 字串（選填），建議存成文章的附加欄位，顯示為可收合的「裝置資訊」區塊，**不要**直接併入內文 |
+| `src/app/new/page.tsx` | 頁面外框；`useSearchParams` 需要 `<Suspense>` 包住，否則 production build 會失敗 |
+| `src/app/new/new-post-form.tsx` | 讀草稿、表單、送出 |
+| `src/app/new/voice-recorder.tsx` | 語音附件（見 §3.3） |
+| `src/lib/townpass-bridge.ts` | `callApp`、`isInTownPass`、`ReportDraft` 型別 |
+| `src/lib/forum-api.ts` | 後端 API：`getToken`、`uploadImage`、`uploadAudio`、`createQuestion` |
+
+讀草稿（`new-post-form.tsx`）：
+
+```tsx
+useEffect(() => {
+  // 草稿只能讀一次：Strict Mode 下 effect 會跑兩次，用 ref 防止第二次讀到 null
+  if (!isAppReport || requested.current) return;
+  requested.current = true;
+  if (!isInTownPass()) return setLoadingDraft(false);
+
+  callApp<ReportDraft | null>('report_draft').then((d) => {
+    setLoadingDraft(false);
+    if (!d) return; // 已讀過、逾時（10 分鐘）或網域不符
+    setDraft(d);
+    setCategory('app_usage');
+    setTitle(d.description ? `[問題回報] ${d.description.slice(0, 30)}` : '[問題回報]');
+    setContent(d.description);
+    setImage(d.image);
+  });
+}, [isAppReport]);
+```
+
+送出：附件先各自上傳到 `POST /media` 取得 `id`，再放進 `POST /questions` 的 `media_ids`。
+
+```tsx
+const media_ids: string[] = [];
+if (image) {
+  const blob = await (await fetch(image)).blob(); // data URL → Blob
+  media_ids.push((await uploadImage(token, blob, `report-${draft?.id ?? Date.now()}.png`)).id);
+}
+if (audio) {
+  media_ids.push((await uploadAudio(token, audio.blob, audio.seconds)).id);
+}
+await createQuestion(token, {
+  title: title.trim().slice(0, 80) || undefined,
+  body: content.trim() || undefined,
+  media_ids: media_ids.length ? media_ids : undefined,
+  category, // 一般發文不傳，交給後端自動分類
+  // 裝置資訊放 context.extra，不併入內文
+  context: draft
+    ? { service_id: 'townpass-app', service_name: 'Town Pass', page_route: draft.context.route.split('?')[0], extra: { reportId: draft.id, ...draft.context } }
+    : null,
+  client_request_id: draft?.id ?? fallbackRequestId, // 防重送
+  // …language、assistance_mode 等其他欄位
+});
+```
+
+- `body` 和 `media_ids` 至少要有一個，所以有截圖或錄音時內文可以不填。
+- token 失效（401）時清掉快取、重建工作階段再送一次。
+- 截圖是 data URL，不需要 `next/image` 的圖片最佳化，直接用原生 `<img>`。
+
+### 3.3 語音附件（錄音）
+
+錄音完全在網頁端進行（`getUserMedia` + `MediaRecorder`），一般發文與問題回報都能使用。在 App 內時，**只有論壇網域**能取得麥克風，第一次錄音時 App 會詢問使用者授權（App 端實作見 `lib/util/tp_web_view.dart` 的 `_canGrant`）。
+
+`voice-recorder.tsx` 的行為：
+
+- 最長 60 秒，到時自動停止；錄完顯示 `<audio controls>` 試聽與刪除鈕，回傳 `{ blob, seconds }`。
+- 依序嘗試 `audio/mp4`、`audio/webm;codecs=opus`、`audio/webm`，取第一個 `MediaRecorder.isTypeSupported` 的格式；位元率 32 kbps，60 秒約 240 KB。
+- `NotAllowedError`（使用者拒絕）、`NotFoundError`（沒有麥克風）顯示對應提示。
+- 非 HTTPS 或瀏覽器不支援時不顯示按鈕；離開頁面時釋放麥克風。
+
+| 環境 | 錄出的格式 | 上傳檔名 |
+|---|---|---|
+| iOS（WKWebView／Safari） | `audio/mp4`（AAC） | `voice.m4a` |
+| Android WebView／Chrome | `audio/webm`（Opus） | `voice.webm` |
 
 注意事項：
 
-- **發文者身分請以論壇自己的登入 session 判斷**，不要信任前端或 App `userinfo` 傳來的使用者 ID（無法驗證真偽）。
-- 限制上傳大小（建議 5 MB）並檢查 MIME type 為 `image/png` 或 `image/jpeg`。
-- 建議在「問題回報」分類自動加上 `app-report` 標籤，方便開發者篩選。
+- 必須由使用者點擊才開始錄音，不要在頁面載入時要求麥克風。
+- iOS 錄的 `audio/mp4` 在 Android 可以播；Android 錄的 `audio/webm` 要 iOS 17.4 以後才能播。要所有裝置都能播，需由後端轉檔成 AAC。
+- iOS 要 15 以上，WKWebView 才支援網頁錄音。
 
-### 3.4 測試
+### 3.4 後端 API
 
-在一般瀏覽器開發時沒有 `flutterObject`，可以在 `app/new/NewPostForm.tsx` 之前載入模擬程式（**僅限開發環境**）：
+完整規格見論壇專案的 `api-spec.md`，這裡只列發文相關的部分。
+
+`POST /media`（`multipart/form-data`）：
+
+| 欄位 | 說明 |
+|---|---|
+| `kind` | `image` 或 `audio` |
+| `duration_seconds` | `kind=audio` 時必填，前端以錄音經過的秒數帶入 |
+| `file` | 圖片：JPEG、PNG、WebP，最大 10 MB；語音：M4A、AAC、MP3、WebM，最長 3 分鐘 |
+
+- 文字欄位要放在 `file` 前面，有些 multipart 解析器處理檔案時只看得到前面的欄位。
+- 錄音的 MIME 可能帶 `;codecs=opus`，上傳前會去掉參數並改成對應副檔名（`forum-api.ts` 的 `audioFile`）。
+- 超過 24 小時沒被問題或回答引用的檔案會被刪除。
+
+`POST /questions`（JSON）：`media_ids` 最多 5 項；`client_request_id` 用來去重，問題回報帶草稿 ID，避免同一份回報被發兩次。
+
+注意事項：
+
+- **發文者身分以後端的工作階段 token 判斷**，不要信任前端或 App `userinfo` 傳來的使用者 ID（無法驗證真偽）。
+- 前端的 60 秒限制可以被繞過，長度與大小要由後端檢查。
+
+### 3.5 測試
+
+在一般瀏覽器開發時沒有 `flutterObject`，可以在發文頁之前載入模擬程式（**僅限開發環境**）：
 
 ```ts
 // lib/townpass-mock.ts —— 在 layout 中以 process.env.NODE_ENV === 'development' 條件載入
@@ -322,7 +284,11 @@ if (typeof window !== 'undefined' && !window.flutterObject) {
 1. 在任一畫面點左下角 🐞（或長按右下角「論壇」）。
 2. 填寫描述 →「送到論壇」。
 3. 確認 `/new` 頁面自動帶入內容與截圖。
-4. 重新整理頁面，應不再帶入（草稿只能讀一次）。
+4. 點「錄製語音說明」：第一次會跳出麥克風授權，允許後開始計時，停止後可試聽、刪除。
+5. 送出後確認文章附有語音且可播放（iOS、Android 各測一次，格式不同）。
+6. 重新整理頁面，應不再帶入（草稿只能讀一次）。
+
+在一般瀏覽器開發時錄音也能直接測（`localhost` 允許 `getUserMedia`），不需要 mock。
 
 偵錯：手機以 USB 連接電腦（需 debug 版 App），Chrome 開啟 `chrome://inspect/#devices` 即可檢查 WebView。
 

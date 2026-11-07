@@ -75,6 +75,8 @@
 			<key>LocationTemporaryUsageKey</key>
 			<string>TownPass 需要精確定位權限才可正常使用</string>
 		</dict>
+		<key>NSMicrophoneUsageDescription</key>
+		<string>TownPass 需要麥克風權限，才能在論壇發文時錄製語音</string>
 		<key>NSCameraUsageDescription</key>
         <string>This app needs camera access to scan QR codes</string>
         <key>NSPhotoLibraryUsageDescription</key>

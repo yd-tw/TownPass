@@ -323,6 +323,7 @@ if (draft) {
 3. **無網域限制**：所有在 App WebView 內的頁面與 iframe 都能取得使用者個資與定位，嵌入第三方內容（廣告、外部 iframe）時請特別注意。
 4. **測試資料**：目前 `userinfo` 永遠回傳同一筆假帳號，所有測試手機上的「使用者」都是同一人。
 5. **WebView 行為**：App 標題列預設顯示網頁 `<title>`；App 返回鍵會先執行網頁的上一頁，無上一頁才關閉 WebView。
+6. **麥克風（`getUserMedia`）**：只有論壇網域可以使用，且只開放 `{ audio: true }`，要求鏡頭或其他網域一律拒絕。網頁第一次要求時 App 會跳出系統權限詢問；使用者拒絕時 `getUserMedia` 會丟出 `NotAllowedError`，網頁要自行處理。實作見 `lib/util/tp_web_view.dart` 的 `_canGrant`，寫法見 [`forum-web-guide.md`](./forum-web-guide.md) §3.3。
 
 ---
 
